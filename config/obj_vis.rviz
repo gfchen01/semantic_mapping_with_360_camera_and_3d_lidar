@@ -1,0 +1,357 @@
+Panels:
+  - Class: rviz/Displays
+    Help Height: 78
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Global Options1
+        - /Status1
+      Splitter Ratio: 0.5
+    Tree Height: 752
+  - Class: rviz/Selection
+    Name: Selection
+  - Class: rviz/Tool Properties
+    Expanded:
+      - /2D Pose Estimate1
+      - /2D Nav Goal1
+      - /Publish Point1
+    Name: Tool Properties
+    Splitter Ratio: 0.5886790156364441
+  - Class: rviz/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
+  - Class: rviz/Time
+    Name: Time
+    SyncMode: 0
+    SyncSource: PointCloud2
+Preferences:
+  PromptSaveOnExit: true
+Toolbars:
+  toolButtonStyle: 2
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Line Style:
+        Line Width: 0.029999999329447746
+        Value: Lines
+      Name: Grid
+      Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Plane: XY
+      Plane Cell Count: 10
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: RGB8
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Queue Size: 10
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic: /semantic_cloud
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /bbox3d
+      Name: MarkerArray
+      Namespaces:
+        "{'cabinet': 1}": true
+        "{'cabinet': 2}": true
+        "{'cabinet': 3, 'chair': 1}": true
+        "{'cabinet': 3, 'chair': 2}": true
+        "{'cabinet': 3, 'chair': 3}": true
+        "{'cabinet': 3, 'chair': 4}": true
+        "{'cabinet': 3}": true
+        "{'ceiling': 10}": true
+        "{'ceiling': 11}": true
+        "{'ceiling': 1}": true
+        "{'ceiling': 2}": true
+        "{'ceiling': 3}": true
+        "{'ceiling': 4}": true
+        "{'ceiling': 5}": true
+        "{'ceiling': 6}": true
+        "{'ceiling': 7}": true
+        "{'ceiling': 8}": true
+        "{'ceiling': 9}": true
+        "{'chair': 10}": true
+        "{'chair': 11}": true
+        "{'chair': 12}": true
+        "{'chair': 13}": true
+        "{'chair': 14}": true
+        "{'chair': 17}": true
+        "{'chair': 18}": true
+        "{'chair': 19}": true
+        "{'chair': 1}": true
+        "{'chair': 20}": true
+        "{'chair': 21}": true
+        "{'chair': 22}": true
+        "{'chair': 23}": true
+        "{'chair': 24}": true
+        "{'chair': 25}": true
+        "{'chair': 26}": true
+        "{'chair': 27}": true
+        "{'chair': 28}": true
+        "{'chair': 29}": true
+        "{'chair': 2}": true
+        "{'chair': 30}": true
+        "{'chair': 31}": true
+        "{'chair': 32}": true
+        "{'chair': 33}": true
+        "{'chair': 34}": true
+        "{'chair': 35}": true
+        "{'chair': 36}": true
+        "{'chair': 37}": true
+        "{'chair': 38}": true
+        "{'chair': 39}": true
+        "{'chair': 3}": true
+        "{'chair': 40}": true
+        "{'chair': 41}": true
+        "{'chair': 43}": true
+        "{'chair': 4}": true
+        "{'chair': 50}": true
+        "{'chair': 5}": true
+        "{'chair': 6}": true
+        "{'chair': 7}": true
+        "{'chair': 8}": true
+        "{'chair': 9}": true
+        "{'column': 11}": true
+        "{'column': 12}": true
+        "{'column': 14}": true
+        "{'column': 15}": true
+        "{'column': 16}": true
+        "{'column': 1}": true
+        "{'column': 2}": true
+        "{'column': 3}": true
+        "{'column': 5}": true
+        "{'column': 6}": true
+        "{'column': 7}": true
+        "{'column': 8}": true
+        "{'door': 1}": true
+        "{'door': 2}": true
+        "{'fireextinguisher': 1}": true
+        "{'fireextinguisher': 2}": true
+        "{'fireextinguisher': 3}": true
+        "{'floor': 10}": true
+        "{'floor': 1}": true
+        "{'floor': 2}": true
+        "{'floor': 3}": true
+        "{'floor': 4}": true
+        "{'floor': 5}": true
+        "{'floor': 6}": true
+        "{'floor': 7}": true
+        "{'floor': 8}": true
+        "{'floor': 9}": true
+        "{'garbagebin': 1, 'chair': 1}": true
+        "{'garbagebin': 1, 'chair': 2}": true
+        "{'garbagebin': 10}": true
+        "{'garbagebin': 11}": true
+        "{'garbagebin': 12}": true
+        "{'garbagebin': 13}": true
+        "{'garbagebin': 14}": true
+        "{'garbagebin': 15}": true
+        "{'garbagebin': 16}": true
+        "{'garbagebin': 17}": true
+        "{'garbagebin': 18}": true
+        "{'garbagebin': 19}": true
+        "{'garbagebin': 1}": true
+        "{'garbagebin': 2, 'chair': 2}": true
+        "{'garbagebin': 20}": true
+        "{'garbagebin': 21}": true
+        "{'garbagebin': 22}": true
+        "{'garbagebin': 2}": true
+        "{'garbagebin': 3}": true
+        "{'garbagebin': 4, 'chair': 2}": true
+        "{'garbagebin': 4}": true
+        "{'garbagebin': 5, 'chair': 2}": true
+        "{'garbagebin': 5}": true
+        "{'garbagebin': 6}": true
+        "{'garbagebin': 7, 'chair': 2, 'pottedplant': 1}": true
+        "{'garbagebin': 7}": true
+        "{'garbagebin': 8}": true
+        "{'garbagebin': 9}": true
+        "{'pottedplant': 1, 'garbagebin': 1}": true
+        "{'pottedplant': 1}": true
+        "{'pottedplant': 2, 'garbagebin': 1}": true
+        "{'pottedplant': 2}": true
+        "{'refrigerator': 11}": true
+        "{'refrigerator': 13}": true
+        "{'refrigerator': 14}": true
+        "{'refrigerator': 1}": true
+        "{'refrigerator': 2}": true
+        "{'refrigerator': 3}": true
+        "{'refrigerator': 4}": true
+        "{'refrigerator': 5}": true
+        "{'refrigerator': 6}": true
+        "{'refrigerator': 7}": true
+        "{'refrigerator': 8}": true
+        "{'refrigerator': 9}": true
+        "{'sign': 11}": true
+        "{'sign': 12}": true
+        "{'sign': 15}": true
+        "{'sign': 16}": true
+        "{'sign': 17}": true
+        "{'sign': 18}": true
+        "{'sign': 1}": true
+        "{'sign': 2}": true
+        "{'sign': 3}": true
+        "{'sign': 4}": true
+        "{'sign': 5}": true
+        "{'table': 1, 'chair': 1}": true
+        "{'table': 1, 'chair': 2}": true
+        "{'table': 1, 'chair': 3}": true
+        "{'table': 10, 'chair': 1}": true
+        "{'table': 10}": true
+        "{'table': 11}": true
+        "{'table': 12}": true
+        "{'table': 13}": true
+        "{'table': 14}": true
+        "{'table': 15}": true
+        "{'table': 16}": true
+        "{'table': 17}": true
+        "{'table': 18}": true
+        "{'table': 19}": true
+        "{'table': 1}": true
+        "{'table': 20}": true
+        "{'table': 21}": true
+        "{'table': 22}": true
+        "{'table': 23}": true
+        "{'table': 24}": true
+        "{'table': 25}": true
+        "{'table': 26}": true
+        "{'table': 27}": true
+        "{'table': 28}": true
+        "{'table': 29}": true
+        "{'table': 2}": true
+        "{'table': 30}": true
+        "{'table': 31}": true
+        "{'table': 3}": true
+        "{'table': 4}": true
+        "{'table': 5}": true
+        "{'table': 6}": true
+        "{'table': 7}": true
+        "{'table': 8, 'chair': 1}": true
+        "{'table': 8}": true
+        "{'table': 9}": true
+        "{'wall': 11}": true
+        "{'wall': 13}": true
+        "{'wall': 16}": true
+        "{'wall': 18}": true
+        "{'wall': 20}": true
+        "{'wall': 22}": true
+        "{'wall': 24}": true
+        "{'wall': 26}": true
+        "{'wall': 28}": true
+        "{'wall': 2}": true
+        "{'wall': 30}": true
+        "{'wall': 31}": true
+        "{'wall': 32}": true
+        "{'wall': 34}": true
+        "{'wall': 35}": true
+        "{'wall': 36}": true
+        "{'wall': 37}": true
+        "{'wall': 39}": true
+        "{'wall': 3}": true
+        "{'wall': 40}": true
+        "{'wall': 41}": true
+        "{'wall': 42}": true
+        "{'wall': 43}": true
+        "{'wall': 4}": true
+        "{'wall': 6}": true
+        "{'wall': 9}": true
+      Queue Size: 100
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: map
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz/Interact
+      Hide Inactive Objects: true
+    - Class: rviz/MoveCamera
+    - Class: rviz/Select
+    - Class: rviz/FocusCamera
+    - Class: rviz/Measure
+    - Class: rviz/SetInitialPose
+      Theta std deviation: 0.2617993950843811
+      Topic: /initialpose
+      X std deviation: 0.5
+      Y std deviation: 0.5
+    - Class: rviz/SetGoal
+      Topic: /move_base_simple/goal
+    - Class: rviz/PublishPoint
+      Single click: true
+      Topic: /clicked_point
+  Value: true
+  Views:
+    Current:
+      Class: rviz/Orbit
+      Distance: 9.493209838867188
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.05999999865889549
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Field of View: 0.7853981852531433
+      Focal Point:
+        X: 2.967590808868408
+        Y: 1.207237958908081
+        Z: 0.2341044396162033
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.9847970604896545
+      Target Frame: <Fixed Frame>
+      Yaw: 1.425397515296936
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1043
+  Hide Left Dock: false
+  Hide Right Dock: false
+  QMainWindow State: 000000ff00000000fd00000004000000000000015600000379fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000379000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f00000379fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003b00000379000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000003efc0100000002fb0000000800540069006d00650100000000000007800000031600fffffffb0000000800540069006d006501000000000000045000000000000000000000050f0000037900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  Selection:
+    collapsed: false
+  Time:
+    collapsed: false
+  Tool Properties:
+    collapsed: false
+  Views:
+    collapsed: false
+  Width: 1920
+  X: 0
+  Y: 0

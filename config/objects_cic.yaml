@@ -1,0 +1,32 @@
+chair:
+  - chair
+table:
+  - table
+sofa:
+  - sofa
+  - long sofa
+screen:
+  - screen
+  - screen on the table
+  - screen with a stand
+  - black rectangular screen
+wall:
+  - wall
+  - white wall
+  - blue wall
+painting:
+  - painting on the wall
+whiteboard:
+  - whiteboard on the wall
+  - standing whiteboard
+cabinet:
+  - storage cabinet
+  - wood cabinet
+  - white cabinet
+  - black cabinet under the table
+floor:
+  - floor
+ceiling:
+  - ceiling
+door:
+  - door

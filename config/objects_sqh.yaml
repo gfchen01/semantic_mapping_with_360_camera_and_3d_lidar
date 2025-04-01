@@ -1,0 +1,46 @@
+chair:
+  - chair
+sofa:
+  - sofa
+table:
+  - table
+wall:
+  - wall
+  - white wall
+  - blue wall
+  - black wall
+cabinet:
+  - white cabinet
+floor:
+  - floor
+ceiling:
+  - ceiling
+light:
+  - hangling light
+background:
+  - background
+garbagebin:
+  - garbage bin
+refrigerator:
+  - silver refrigerator
+column:
+  - structural column
+sign:
+  - safety sign
+  - caution sign
+microwave:
+  - microwave
+coffeemachine:
+  - coffee machine
+pottedplant:
+  - small potted plant
+  - plant pot
+  - plant
+fireextinguisher:
+  - fire extinguisher
+door:
+  - door
+# television:
+#   - television
+# painting:
+#   - painting on the wall

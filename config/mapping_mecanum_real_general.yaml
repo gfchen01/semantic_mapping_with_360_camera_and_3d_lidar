@@ -1,0 +1,45 @@
+platform: mecanum
+use_lidar_odom: true
+detection_linear_state_time_bias: 0.0
+detection_angular_state_time_bias: 0.0
+image_processing_interval: 0.5
+visualize: true
+vis_interval: 0.5
+annotate_image: false
+
+cloud_stack_left: 0.5
+cloud_stack_right: 0.1
+
+prompts:
+  chair:
+    - chair
+  table:
+    - table
+  # sofa:
+    - sofa
+    # - long sofa
+  screen:
+    - screen
+    - screen on the table
+    - screen with a stand
+    - black rectangular screen
+  wall:
+    - wall
+    - white wall
+    - blue wall
+  painting:
+    - painting on the wall
+  whiteboard:
+    - whiteboard on the wall
+    - standing whiteboard
+  cabinet:
+    - storage cabinet
+    - wood cabinet
+    - white cabinet
+    - black cabinet under the table
+  floor:
+    - floor
+  ceiling:
+    - ceiling
+  door:
+    - door

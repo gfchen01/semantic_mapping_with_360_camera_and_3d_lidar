@@ -1,0 +1,17 @@
+data/*
+__pycache__
+*.lprof
+debug
+debug*
+.vscode
+.idea
+output
+*.egg-info
+cython_bbox/src/cython_bbox.c
+
+# ROS
+*.bag
+*.mcap
+*.db3
+build
+output
