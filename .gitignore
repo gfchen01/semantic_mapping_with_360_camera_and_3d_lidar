@@ -7,7 +7,7 @@ debug*
 .idea
 output
 *.egg-info
-cython_bbox/src/cython_bbox.c
+external/cython_bbox/src/cython_bbox.c
 
 # ROS
 *.bag

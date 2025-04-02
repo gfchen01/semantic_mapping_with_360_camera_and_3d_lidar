@@ -15,12 +15,10 @@ from .tools import ros2_bag_utils as ros2_bag_utils
 from .utils import generate_colors, extract_meta_class, get_corners_from_box3d_torch, find_nearby_points
 from .visualizer import VisualizerRerun
 
-from line_profiler import profile
+# from line_profiler import profile
 
 import copy
-import torch
-import pytorch3d
-from pytorch3d.ops import box3d_overlap
+# from pytorch3d.ops import box3d_overlap
 
 def serialize_objs_to_bag(writer, obj_mapper, stamp: float, raw_cloud=None, odom=None):
     seconds = int(stamp)
@@ -214,7 +212,7 @@ class ObjMapper():
         return det_tracked, unmatched, det_labels_orig
 
     # @memory_profiler.profile
-    @profile
+    # @profile
     def update_map(self, detections, detection_stamp, detection_odom, cloud):
         R_b2w = Rotation.from_quat(detection_odom['orientation']).as_matrix()
         t_b2w = np.array(detection_odom['position'])
@@ -369,90 +367,91 @@ class ObjMapper():
                                 dist_thresh = np.linalg.norm((extent_object/2 + extent_target/2)/2) * 0.5
 
                                 # merge directly if the distance is small
-                                if minimum_dist < dist_thresh or minimum_dist < 0.4:
+                                if minimum_dist < dist_thresh or minimum_dist < 0.5:
                                     print(f"Merge {single_obj.class_id}:{single_obj.obj_id} to {target_obj.class_id}:{target_obj.obj_id} with dist thresh {dist_thresh}")
                                     if self.captioner is not None:
                                         self.captioner.merge_objects(single_obj.obj_id[0], target_obj.obj_id[0])
                                     merged_obj = True
-                                # if not merged, check the IOU of the nearest bounding box
-                                else:
-                                    # bbox3d_object_torch = torch.from_numpy(bbox3d_object).float().unsqueeze(0)
-                                    # bbox3d_target_torch = torch.from_numpy(bbox3d_target).float().unsqueeze(0)
+                                
+                                # # if not merged, check the IOU of the nearest bounding box
+                                # else:
+                                #     # bbox3d_object_torch = torch.from_numpy(bbox3d_object).float().unsqueeze(0)
+                                #     # bbox3d_target_torch = torch.from_numpy(bbox3d_target).float().unsqueeze(0)
 
-                                    _, _, angle_object = Rotation.from_quat(q_object).as_euler('xyz')
-                                    _, _, angle_target = Rotation.from_quat(q_target).as_euler('xyz')
+                                #     _, _, angle_object = Rotation.from_quat(q_object).as_euler('xyz')
+                                #     _, _, angle_target = Rotation.from_quat(q_target).as_euler('xyz')
 
-                                    bbox3d_object_corners = get_corners_from_box3d_torch(center_object, extent_object/2, angle_object).unsqueeze(0)
-                                    bbox3d_target_corners = get_corners_from_box3d_torch(center_target, extent_target/2, angle_target).unsqueeze(0)
+                                #     bbox3d_object_corners = get_corners_from_box3d_torch(center_object, extent_object/2, angle_object).unsqueeze(0)
+                                #     bbox3d_target_corners = get_corners_from_box3d_torch(center_target, extent_target/2, angle_target).unsqueeze(0)
 
-                                    bbox3d_object_vol = (extent_object[0] * extent_object[1] * extent_object[2]).item()
-                                    bbox3d_target_vol = (extent_target[0] * extent_target[1] * extent_target[2]).item()
-                                    inter_vol, iou_3d = box3d_overlap(bbox3d_object_corners, bbox3d_target_corners, eps=1e-5)
+                                #     bbox3d_object_vol = (extent_object[0] * extent_object[1] * extent_object[2]).item()
+                                #     bbox3d_target_vol = (extent_target[0] * extent_target[1] * extent_target[2]).item()
+                                #     inter_vol, iou_3d = box3d_overlap(bbox3d_object_corners, bbox3d_target_corners, eps=1e-5)
 
-                                    inter_vol = inter_vol.item()
-                                    iou_3d = iou_3d.item()
+                                #     inter_vol = inter_vol.item()
+                                #     iou_3d = iou_3d.item()
 
-                                    ratio_object = inter_vol / bbox3d_object_vol
-                                    ratio_target = inter_vol / bbox3d_target_vol
+                                #     ratio_object = inter_vol / bbox3d_object_vol
+                                #     ratio_target = inter_vol / bbox3d_target_vol
 
-                                    if iou_3d > 0.3 or (ratio_object > 0.5 and ratio_target > 0.5):
-                                        merged_obj = True
+                                #     if iou_3d > 0.3 or (ratio_object > 0.5 and ratio_target > 0.5):
+                                #         merged_obj = True
                                     
-                                    elif (ratio_object > 0.5 or ratio_target > 0.5):
-                                        if self.adjacency_graph.is_set_adjacent(single_obj.obj_id, target_obj.obj_id):
-                                            if ratio_object < ratio_target: # object is larger than target
-                                                single_obj, target_obj = target_obj, single_obj
-                                                swapped = True
+                                #     elif (ratio_object > 0.5 or ratio_target > 0.5):
+                                #         if self.adjacency_graph.is_set_adjacent(single_obj.obj_id, target_obj.obj_id):
+                                #             if ratio_object < ratio_target: # object is larger than target
+                                #                 single_obj, target_obj = target_obj, single_obj
+                                #                 swapped = True
                                             
-                                            obj_voxels = single_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
-                                            target_voxels = target_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
+                                #             obj_voxels = single_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
+                                #             target_voxels = target_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
 
-                                            # HYPERPARAM: distance threshold for nearest neighbor
-                                            nearby_indices = find_nearby_points(obj_voxels, target_voxels, 0.05)
+                                #             # HYPERPARAM: distance threshold for nearest neighbor
+                                #             nearby_indices = find_nearby_points(obj_voxels, target_voxels, 0.05)
                                             
-                                            # single_obj_regularize_mask = single_obj.vote_stat.regualrized_voxel_mask
-                                            # single_obj_valid_mask = single_obj.valid_indices_regularized
+                                #             # single_obj_regularize_mask = single_obj.vote_stat.regualrized_voxel_mask
+                                #             # single_obj_valid_mask = single_obj.valid_indices_regularized
 
-                                            target_obj_regularize_mask = target_obj.vote_stat.regularized_voxel_mask
-                                            target_obj_valid_indices_regularized = target_obj.valid_indices_regularized
+                                #             target_obj_regularize_mask = target_obj.vote_stat.regularized_voxel_mask
+                                #             target_obj_valid_indices_regularized = target_obj.valid_indices_regularized
                                             
-                                            voxel_exchange_mask_indices = np.where(target_obj_regularize_mask)[0][target_obj_valid_indices_regularized][nearby_indices]
-                                            voxel_exchange_mask = np.zeros_like(target_obj_regularize_mask)
-                                            voxel_exchange_mask[voxel_exchange_mask_indices] = 1
-                                            voxel_exchange_mask = ~voxel_exchange_mask.astype(bool)
+                                #             voxel_exchange_mask_indices = np.where(target_obj_regularize_mask)[0][target_obj_valid_indices_regularized][nearby_indices]
+                                #             voxel_exchange_mask = np.zeros_like(target_obj_regularize_mask)
+                                #             voxel_exchange_mask[voxel_exchange_mask_indices] = 1
+                                #             voxel_exchange_mask = ~voxel_exchange_mask.astype(bool)
                                             
-                                            voxels_exchange, obs_angle_exchange, votes_exchange = target_obj.pop(voxel_exchange_mask)
-                                            single_obj.add(voxels_exchange, obs_angle_exchange, votes_exchange)
+                                #             voxels_exchange, obs_angle_exchange, votes_exchange = target_obj.pop(voxel_exchange_mask)
+                                #             single_obj.add(voxels_exchange, obs_angle_exchange, votes_exchange)
 
-                                            # DEBUG
-                                            print(f"Voxels exchanged: {voxel_exchange_mask_indices.shape[0]} for {single_obj.get_dominant_label()}:{single_obj.obj_id} and {target_obj.get_dominant_label()}:{target_obj.obj_id}")
-                                            print(f'Before: {obj_voxels.shape[0]}, {target_voxels.shape[0]}')
+                                #             # DEBUG
+                                #             print(f"Voxels exchanged: {voxel_exchange_mask_indices.shape[0]} for {single_obj.get_dominant_label()}:{single_obj.obj_id} and {target_obj.get_dominant_label()}:{target_obj.obj_id}")
+                                #             print(f'Before: {obj_voxels.shape[0]}, {target_voxels.shape[0]}')
 
-                                            new_obj_voxels = single_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
-                                            new_target_voxels = target_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
+                                #             new_obj_voxels = single_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
+                                #             new_target_voxels = target_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
                                             
-                                            print(f'After: {new_obj_voxels.shape[0]}, {new_target_voxels.shape[0]}')
+                                #             print(f'After: {new_obj_voxels.shape[0]}, {new_target_voxels.shape[0]}')
 
-                                            # if new_target_voxels.shape[0] < new_obj_voxels.shape[0]:
-                                            #     # import open3d as o3d
-                                            #     pcd_obj = o3d.geometry.PointCloud()
-                                            #     pcd_obj.points = o3d.utility.Vector3dVector(obj_voxels)
-                                            #     pcd_obj.paint_uniform_color([1, 0, 0])
-                                            #     pcd_target = o3d.geometry.PointCloud()
-                                            #     pcd_target.points = o3d.utility.Vector3dVector(target_voxels)
-                                            #     pcd_target.paint_uniform_color([0, 1, 0])
-                                            #     o3d.visualization.draw_plotly([pcd_obj, pcd_target], window_name="Object and Target")
+                                #             # if new_target_voxels.shape[0] < new_obj_voxels.shape[0]:
+                                #             #     # import open3d as o3d
+                                #             #     pcd_obj = o3d.geometry.PointCloud()
+                                #             #     pcd_obj.points = o3d.utility.Vector3dVector(obj_voxels)
+                                #             #     pcd_obj.paint_uniform_color([1, 0, 0])
+                                #             #     pcd_target = o3d.geometry.PointCloud()
+                                #             #     pcd_target.points = o3d.utility.Vector3dVector(target_voxels)
+                                #             #     pcd_target.paint_uniform_color([0, 1, 0])
+                                #             #     o3d.visualization.draw_plotly([pcd_obj, pcd_target], window_name="Object and Target")
 
-                                            #     pcd_obj.points = o3d.utility.Vector3dVector(new_obj_voxels)
-                                            #     pcd_obj.paint_uniform_color([1, 0, 0])
-                                            #     pcd_target.points = o3d.utility.Vector3dVector(new_target_voxels)
-                                            #     pcd_target.paint_uniform_color([0, 1, 0])
-                                            #     o3d.visualization.draw_plotly([pcd_obj, pcd_target], window_name="Object and Target New")
+                                #             #     pcd_obj.points = o3d.utility.Vector3dVector(new_obj_voxels)
+                                #             #     pcd_obj.paint_uniform_color([1, 0, 0])
+                                #             #     pcd_target.points = o3d.utility.Vector3dVector(new_target_voxels)
+                                #             #     pcd_target.paint_uniform_color([0, 1, 0])
+                                #             #     o3d.visualization.draw_plotly([pcd_obj, pcd_target], window_name="Object and Target New")
                                             
-                                            if new_obj_voxels.shape[0] / new_target_voxels.shape[0] < 0.2:
-                                                merged_obj = True
-                                        else:
-                                            merged_obj = True
+                                #             if new_obj_voxels.shape[0] / new_target_voxels.shape[0] < 0.2:
+                                #                 merged_obj = True
+                                #         else:
+                                #             merged_obj = True
 
                                     # # DEBUG: make a test case for separation
                                     # if (ratio_object > 0.8 or ratio_target > 0.8):

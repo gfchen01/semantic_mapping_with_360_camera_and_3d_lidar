@@ -1,9 +1,6 @@
 import numpy as np
 import scipy.ndimage
 from scipy.spatial.transform import Rotation
-
-from line_profiler import profile
-
 import cv2
 import scipy
 
@@ -202,55 +199,55 @@ def scan2pixels_scannet(cloud):
     return point_pixel_idx
 
 
-# @profile
-import jax
-import jax.numpy as jnp
+# # @profile
+# import jax
+# import jax.numpy as jnp
 
-@jax.jit
-def min_depth_per_pixel(coords, depths):
-    """
-    coords: (N, 2) int array -> each row is (x, y)
-    depths: (N,) float array -> depth for each pixel
+# @jax.jit
+# def min_depth_per_pixel(coords, depths):
+#     """
+#     coords: (N, 2) int array -> each row is (x, y)
+#     depths: (N,) float array -> depth for each pixel
     
-    Returns:
-    unique_coords: (M, 2) array of unique pixel coords
-    min_depths: (M,) array of minimum depth per unique coord
-    """
-    # 1) Get unique coordinates + inverse index
-    coords = jnp.array(coords)
-    depths = jnp.array(depths)
+#     Returns:
+#     unique_coords: (M, 2) array of unique pixel coords
+#     min_depths: (M,) array of minimum depth per unique coord
+#     """
+#     # 1) Get unique coordinates + inverse index
+#     coords = jnp.array(coords)
+#     depths = jnp.array(depths)
 
-    # unique_coords, inv_idx = jnp.unique(coords, axis=0, return_inverse=True, size=coords.shape[0], fill_value=-1)
+#     # unique_coords, inv_idx = jnp.unique(coords, axis=0, return_inverse=True, size=coords.shape[0], fill_value=-1)
     
-    # unique_coords = unique_coords[unique_coords[:, 0] != -1]  # Remove fill_value
-    # assert len(inv_idx) == len(coords)
+#     # unique_coords = unique_coords[unique_coords[:, 0] != -1]  # Remove fill_value
+#     # assert len(inv_idx) == len(coords)
 
-    # 2) Prepare output array for minimum depth
-    min_depths = jnp.full(len(coords), jnp.inf, dtype=depths.dtype) # discard the last element at last
+#     # 2) Prepare output array for minimum depth
+#     min_depths = jnp.full(len(coords), jnp.inf, dtype=depths.dtype) # discard the last element at last
     
-    # # 3) "Scatter" minimum using np.minimum.at
-    # #    This will, for each index in inv_idx, do:
-    # #       min_depths[inv_idx[i]] = min(min_depths[inv_idx[i]], depths[i])
-    # for i in range(len(coords)):
-    #     # min_depths[inv_idx[i]] = jnp.min(min_depths[inv_idx[i]], depths[i])
-    #     check_depth = min_depths[inv_idx[i]]
-    #     if depths[i] < check_depth:
-    #         min_depths = jax.ops.index_update(min_depths, inv_idx[i], depths[i])
+#     # # 3) "Scatter" minimum using np.minimum.at
+#     # #    This will, for each index in inv_idx, do:
+#     # #       min_depths[inv_idx[i]] = min(min_depths[inv_idx[i]], depths[i])
+#     # for i in range(len(coords)):
+#     #     # min_depths[inv_idx[i]] = jnp.min(min_depths[inv_idx[i]], depths[i])
+#     #     check_depth = min_depths[inv_idx[i]]
+#     #     if depths[i] < check_depth:
+#     #         min_depths = jax.ops.index_update(min_depths, inv_idx[i], depths[i])
             
-    #     # min_depths.at[inv_idx[i]].set(jnp.min(min_depths[inv_idx[i]], depths[i]))
+#     #     # min_depths.at[inv_idx[i]].set(jnp.min(min_depths[inv_idx[i]], depths[i]))
 
-    def body_fun(i, current_min_depths):
-        # Get the current depth and the index corresponding to the coordinate.
-        current_depth = depths[i]
-        current_value = current_min_depths[i]
-        # Use jax.lax.select to pick the minimum without a Python if.
-        new_value = jax.lax.select(current_depth < current_value, current_depth, current_value)
-        return current_min_depths.at[i].set(new_value)
+#     def body_fun(i, current_min_depths):
+#         # Get the current depth and the index corresponding to the coordinate.
+#         current_depth = depths[i]
+#         current_value = current_min_depths[i]
+#         # Use jax.lax.select to pick the minimum without a Python if.
+#         new_value = jax.lax.select(current_depth < current_value, current_depth, current_value)
+#         return current_min_depths.at[i].set(new_value)
     
-    final_min_depths = jax.lax.fori_loop(0, len(coords), body_fun, min_depths)
+#     final_min_depths = jax.lax.fori_loop(0, len(coords), body_fun, min_depths)
     
-    # return unique_coords, final_min_depths
-    return coords, final_min_depths
+#     # return unique_coords, final_min_depths
+#     return coords, final_min_depths
 
 class CloudImageFusion:
     def __init__(self, platform):
