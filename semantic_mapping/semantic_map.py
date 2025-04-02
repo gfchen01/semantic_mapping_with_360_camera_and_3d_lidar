@@ -2,67 +2,16 @@ import cv2
 import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
-from rclpy.time import Time
-from visualization_msgs.msg import Marker
-from visualization_msgs.msg import MarkerArray
-from sensor_msgs.msg import PointCloud2
-from rclpy.serialization import serialize_message
 from bytetrack.byte_tracker import BYTETracker
 
 from .cloud_image_fusion import CloudImageFusion
 from .single_object import SingleObject, AdjacencyGraph
-from .tools import ros2_bag_utils as ros2_bag_utils
+from .tools import ros1_bag_utils as ros1_bag_utils
 from .utils import generate_colors, extract_meta_class, get_corners_from_box3d_torch, find_nearby_points
 from .visualizer import VisualizerRerun
 
 # from line_profiler import profile
-
 import copy
-# from pytorch3d.ops import box3d_overlap
-
-def serialize_objs_to_bag(writer, obj_mapper, stamp: float, raw_cloud=None, odom=None):
-    seconds = int(stamp)
-    nanoseconds = int((stamp - seconds) * 1e9)
-
-    marker_array = []
-    delete_marker_time = stamp - 1e-4
-    delete_marker_seconds = int(delete_marker_time)
-    delete_marker_nanoseconds = int((delete_marker_time - delete_marker_seconds) * 1e9)
-    clear_marker = Marker()
-    clear_marker.header.frame_id = 'map'
-    clear_marker.header.stamp = Time(seconds=delete_marker_seconds, nanoseconds=delete_marker_nanoseconds).to_msg()
-    clear_marker.action = Marker.DELETEALL
-
-    marker_array.append(clear_marker)
-
-    map_vis_msgs = obj_mapper.to_ros2_msgs(stamp)
-    
-    for msg in map_vis_msgs:
-        if isinstance(msg, PointCloud2):
-            writer.write('obj_points', serialize_message(msg), int(stamp * 1e9))
-        elif isinstance(msg, Marker):
-            marker_array.append(msg)
-
-    if len(marker_array) > 1:
-        marker_array_msg = MarkerArray()
-        marker_array_msg.markers = marker_array
-        writer.write('obj_boxes', serialize_message(marker_array_msg), int(stamp * 1e9))
-
-    if raw_cloud is not None:
-        if raw_cloud.shape[0] > 1e5:
-            downsampled_cloud = raw_cloud[np.random.choice(raw_cloud.shape[0], int(1e5), replace=False)]
-        else:
-            downsampled_cloud = raw_cloud
-
-        ros_raw_pcd = ros2_bag_utils.create_point_cloud(downsampled_cloud, seconds, nanoseconds, frame_id='map')
-        writer.write('registered_scan', serialize_message(ros_raw_pcd), int(stamp * 1e9))
-    
-    if odom is not None:
-        odom_msg = ros2_bag_utils.create_odom_msg(odom, seconds, nanoseconds)
-        tf_transform = ros2_bag_utils.create_tf_msg(odom, seconds, nanoseconds, 'map', 'sensor')
-
-        writer.write('state_estimation', serialize_message(odom_msg), int(stamp * 1e9))
-        writer.write('tf', serialize_message(tf_transform), int(stamp * 1e9))
 
 INSTANCE_LEVEL_OBJECTS = [
     'chair', 
@@ -79,6 +28,7 @@ INSTANCE_LEVEL_OBJECTS = [
     'vehicle',
     'painting',
     'box',
+    'fireextinguisher',
 ]
 
 OMIT_OBJECTS = [
@@ -266,7 +216,7 @@ class ObjMapper():
         for cloud_cnt, cloud in enumerate(obj_clouds_world):
             cloud_to_odom_dist = np.linalg.norm(cloud[:, :3] - t_b2w, axis=1)
             dist_mask = (cloud_to_odom_dist < self.cloud_to_odom_dist_thres)
-            # dist_mask = dist_mask & (cloud[:, 2] > self.ground_height)
+            dist_mask = dist_mask & (cloud[:, 2] > self.ground_height)
             cloud = cloud[dist_mask]
             
             if cloud.shape[0] < 5:
@@ -617,11 +567,9 @@ class ObjMapper():
                 }
         return objects_dict
 
-    def to_ros2_msgs(self, stamp):
+    def to_ros1_msgs(self, stamp):
         tree_cnt = 0
         colors_to_choose = generate_colors(len(self.single_obj_list), is_int=False)
-        seconds = int(stamp)
-        nanoseconds = int((stamp - seconds) * 1e9)
 
         points_list = []
         colors_list = []
@@ -644,14 +592,13 @@ class ObjMapper():
 
             aabb = pcd.get_axis_aligned_bounding_box()
 
-            obj_marker = ros2_bag_utils.create_wireframe_marker(aabb.get_center(),
+            obj_marker = ros1_bag_utils.create_wireframe_marker(aabb.get_center(),
                                                                 aabb.get_extent(),
                                                                 0.0,
                                                                 ns=f'{single_obj.class_id}',
                                                                 box_id=f'{single_obj.obj_id[0]}',
                                                                 color=colors_to_choose[tree_cnt],
-                                                                seconds=seconds,
-                                                                nanoseconds=nanoseconds,
+                                                                stamp=stamp,
                                                                 frame_id='map',)
             
             ros_msg_list.append(obj_marker)
@@ -660,7 +607,7 @@ class ObjMapper():
         if len(points_list) != 0:
             points = np.concatenate(points_list, axis=0)
             colors = np.concatenate(colors_list, axis=0)
-            ros_pcd = ros2_bag_utils.create_colored_point_cloud(points, colors, seconds, nanoseconds, frame_id='map')
+            ros_pcd = ros1_bag_utils.create_colored_point_cloud(points, colors, stamp, frame_id='map')
             ros_msg_list.append(ros_pcd)
         
         return ros_msg_list

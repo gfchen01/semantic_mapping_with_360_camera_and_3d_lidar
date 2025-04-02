@@ -15,8 +15,8 @@ Using miniforge is required for setting up ROS. Follow instructions in [miniforg
 Then do the following:
 
 ``` bash
-conda create --name mapping_ros2 python=3.11
-conda activate mapping_ros2
+conda create --name mapping_ros1 python=3.11
+conda activate mapping_ros1
 ```
 
 To make ROS accessible in the environment, install ROS/ROS2 using robostack.
@@ -26,16 +26,16 @@ To make ROS accessible in the environment, install ROS/ROS2 using robostack.
 # this adds the conda-forge channel to the new created environment configuration 
 conda config --env --add channels conda-forge
 # and the robostack channel
-conda config --env --add channels robostack-jazzy
+conda config --env --add channels robostack-noetic
 
 # remove the defaults channel just in case, this might return an error if it is not in the list which is ok
 conda config --env --remove channels defaults
 
 # Install ros-noetic into the environment (ROS1)
-mamba install ros-jazzy-desktop
+mamba install ros-noetic-desktop
 
 conda deactivate
-conda activate mapping_ros2
+conda activate mapping_ros1
 
 # mamba install compilers cmake pkg-config make ninja colcon-common-extensions catkin_tools rosdep
 ```
@@ -65,9 +65,6 @@ pip install . # Install semantic_mapping package
 
 # Tests
 ```bash
-# mecanum simulation
-python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_sim.yaml
-
-# mecanum real
-python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_real_general.yaml
+# wheelchair real
+python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
 ```

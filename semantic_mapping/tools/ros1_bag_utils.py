@@ -18,12 +18,9 @@ from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point, TransformStamped
 from tf2_msgs.msg import TFMessage
 
-import tf
 import numpy as np
 from std_msgs.msg import Header
-import struct
 
-from utils import generate_colors
 
 def create_odom_msg(odom, stamp, frame_id="map"):
     ros_odom = Odometry()

@@ -8,19 +8,21 @@ os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 os.environ["TORCH_CUDA_ARCH_LIST"] = "8.9"
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 from PIL import Image
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-import cv2
 import supervision as sv
 from supervision.draw.color import ColorPalette
 
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
+from torchvision.ops import box_convert
 from bytetrack.byte_tracker import BYTETracker
 from types import SimpleNamespace
 
+import cv2
 
 os.environ["TORCH_CUDA_ARCH_LIST"] = "8.9"
 
@@ -35,30 +37,31 @@ def load_models(
 
     return mask_predictor, grounding_processor, grounding_model
 
-import rclpy
-from rclpy.node import Node
-from rclpy.time import Time
+import rospy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import PointCloud2
-from sensor_msgs_py import point_cloud2
+import sensor_msgs.point_cloud2 as pc2
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import String
+from tf2_msgs.msg import TFMessage
+from geometry_msgs.msg import TransformStamped
+
 
 from scipy.spatial.transform import Slerp
 from scipy.spatial.transform import Rotation
 import open3d as o3d
 
-from .utils import find_closest_stamp, find_neighbouring_stamps
-from .semantic_map import ObjMapper
-from .tools import ros2_bag_utils
-from .cloud_image_fusion import CloudImageFusion
-
 import yaml
 import sys
 from pathlib import Path
+
+from .semantic_map import ObjMapper
+from .utils import find_closest_stamp, find_neighbouring_stamps
+from .cloud_image_fusion import CloudImageFusion
+from .tools import ros1_bag_utils
 
 captioner_not_found = False
 try:
@@ -69,11 +72,12 @@ except ModuleNotFoundError:
     captioner_not_found = True
     print(f"Captioner not found. Fall back to no captioning version.")
 
-class MappingNode(Node):
-    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker):
-        super().__init__('semantic_mapping_node')
 
-        # class global containers
+class MappingNode:
+    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker):
+        rospy.init_node('semantic_mapping')
+
+        # stacks for time synchronization
         self.cloud_stack = []
         self.cloud_stamps = []
         self.odom_stack = []
@@ -91,7 +95,6 @@ class MappingNode(Node):
         self.last_camera_odom = None
         self.last_vis_stamp = 0.0
 
-
         # parameters
         self.platform = config.get('platform', 'mecanum')
         self.use_lidar_odom = config.get('use_lidar_odom', False)
@@ -105,13 +108,13 @@ class MappingNode(Node):
         self.ANNOTATE = config['annotate_image']
 
         print(
-            f'Platform: {self.platform}\n,\
-                Use lidar odometry: {self.use_lidar_odom}\n,\
-                Detection linear state time bias: {self.detection_linear_state_time_bias}\n,\
-                Detection angular state time bias: {self.detection_angular_state_time_bias}\n,\
-                Image processing interval: {self.image_processing_interval}\n,\
-                Visualization interval: {self.vis_interval}\n,\
-                Annotate image: {self.ANNOTATE}'
+        f'Platform: {self.platform}\n,\
+            Use lidar odometry: {self.use_lidar_odom}\n,\
+            Detection linear state time bias: {self.detection_linear_state_time_bias}\n,\
+            Detection angular state time bias: {self.detection_angular_state_time_bias}\n,\
+            Image processing interval: {self.image_processing_interval}\n,\
+            Visualization interval: {self.vis_interval}\n,\
+            Annotate image: {self.ANNOTATE}'
         )
 
         self.mask_predictor = mask_predictor
@@ -123,52 +126,6 @@ class MappingNode(Node):
         for value in self.label_template.values():
             self.text_prompt += value
         self.text_prompt = " . ".join(self.text_prompt) + " ."
-
-        # ROS2 subscriptions and publishers
-        self.rgb_sub = self.create_subscription(
-            Image,
-            '/camera/image',
-            self.image_callback,
-            10
-        )
-        self.cloud_sub = self.create_subscription(
-            PointCloud2,
-            '/registered_scan',
-            self.cloud_callback,
-            10
-        )
-
-        if self.use_lidar_odom:
-            self.lidar_odom_sub = self.create_subscription(
-                Odometry,
-                '/aft_mapped_to_init_incremental',
-                self.lidar_odom_callback,
-                10
-            )
-
-        self.odom_sub = self.create_subscription(
-            Odometry,
-            '/state_estimation',
-            self.odom_callback,
-            10
-        )
-
-        self.query_sub = self.create_subscription(
-            String, 
-            '/object_query', 
-            self.handle_object_query, 
-            1, 
-            # callback_group=MutuallyExclusiveCallbackGroup()
-            )
-        
-        self.caption_pub = self.create_publisher(String, '/queried_captions', 10) # TODO: Server instead of pub?
-
-        self.mapping_timer = self.create_timer(0.1, self.mapping_callback)
-        self.caption_pub_timer = self.create_timer(0.1, self.publish_queried_captions)
-        self.obj_cloud_pub = self.create_publisher(PointCloud2, '/obj_points', 10)
-        self.obj_box_pub = self.create_publisher(MarkerArray, '/obj_boxes', 10)
-        self.annotated_image_pub = self.create_publisher(Image, '/annotated_image', 10)
-
 
         self.queried_captions = None
 
@@ -182,7 +139,7 @@ class MappingNode(Node):
                 log_info=self.get_logger().info,
                 load_captioner=True
             )
-        
+
         self.cloud_img_fusion = CloudImageFusion(platform=self.platform)
 
         self.obj_mapper = ObjMapper(tracker=tracker, cloud_image_fusion=self.cloud_img_fusion, label_template=self.label_template, captioner=self.captioner, visualize=self.do_visualize)
@@ -198,22 +155,72 @@ class MappingNode(Node):
                 smart_position=True,
             )
             self.mask_annotator = sv.MaskAnnotator(color=ColorPalette.DEFAULT)
-            self.ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'annotated_3d_in_loop')
+            self.ANNOTATE_OUT_DIR = os.path.join('debug_mapper', 'annotated_3d_in_loop')
             if os.path.exists(self.ANNOTATE_OUT_DIR):
                 os.system(f"rm -r {self.ANNOTATE_OUT_DIR}")
             os.makedirs(self.ANNOTATE_OUT_DIR, exist_ok=True)
 
-            self.VERBOSE_ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'verbose_3d_in_loop')
-            self.ORIG_ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'orig_3d_in_loop')
+            self.VERBOSE_ANNOTATE_OUT_DIR = os.path.join('debug_mapper', 'verbose_3d_in_loop')
             if os.path.exists(self.VERBOSE_ANNOTATE_OUT_DIR):
                 os.system(f"rm -r {self.VERBOSE_ANNOTATE_OUT_DIR}")
             os.makedirs(self.VERBOSE_ANNOTATE_OUT_DIR, exist_ok=True)
-            if os.path.exists(self.ORIG_ANNOTATE_OUT_DIR):
-                os.system(f"rm -r {self.ORIG_ANNOTATE_OUT_DIR}")
-            os.makedirs(self.ORIG_ANNOTATE_OUT_DIR, exist_ok=True)
+
+        # self.obj_cloud_pub = self.create_publisher(PointCloud2, '/obj_points', 10)
+        # self.obj_box_pub = self.create_publisher(MarkerArray, '/obj_boxes', 10)
+        # self.annotated_image_pub = self.create_publisher(Image, '/annotated_image', 10)
+
+        # image processing interval
+        # odom move dist thresh for new processing
+        self.odom_move_dist_thresh = 0.05
+        self.last_cam_odom = None
 
         self.bridge = CvBridge()
-        self.get_logger().info('Semantic mapping node has been started.')
+
+        # Pubs and Subs
+
+        self.rgb_sub = rospy.Subscriber(
+            '/camera/image',
+            Image,
+            self.image_callback,
+        )
+
+        self.cloud_sub = rospy.Subscriber(
+            '/registered_scan',
+            PointCloud2,
+            self.cloud_callback,
+        )
+
+        if self.use_lidar_odom:
+            self.lidar_odom_sub = rospy.Subscriber(
+                '/aft_mapped_to_init_incremental',
+                Odometry,
+                self.lidar_odom_callback,
+            )
+
+        self.odom_sub = rospy.Subscriber(
+            '/state_estimation',
+            Odometry,
+            self.odom_callback,
+        )
+
+        self.query_sub = rospy.Subscriber(
+            '/object_query',
+            String,
+            self.handle_object_query,
+            queue_size=1
+        )
+
+        self.caption_pub = rospy.Publisher('/queried_captions', String, queue_size=1)
+
+        self.semantic_cloud_pub = rospy.Publisher('/semantic_cloud', PointCloud2, queue_size=1)
+        self.global_cloud_pub = rospy.Publisher('/global_cloud', PointCloud2, queue_size=1)
+        self.bbox3d_pub = rospy.Publisher('/bbox3d', MarkerArray, queue_size=1)
+        self.tf_pub = rospy.Publisher('/tf', TFMessage, queue_size=1)
+
+        self.mapping_timer = rospy.Timer(rospy.Duration(0.1), self.mapping_callback)
+        self.caption_pub_timer = rospy.Timer(rospy.Duration(0.1), self.publish_queried_captions)
+
+        rospy.loginfo('Semantic mapping node has been started')
 
     def inference(self, cv_image):
         """
@@ -244,7 +251,7 @@ class MappingNode(Node):
         class_names = np.array(results[0]["labels"])
         bboxes = results[0]["boxes"].cpu().numpy()  # (n_boxes, 4)
         confidences = results[0]["scores"].cpu().numpy()  # (n_boxes,)
-                
+
         det_result = {
             "bboxes": bboxes,
             "labels": class_names,
@@ -257,28 +264,29 @@ class MappingNode(Node):
         # try:
             # Convert ROS Image message to OpenCV image
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            det_stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
+            det_stamp = msg.header.stamp.secs + msg.header.stamp.nsecs / 1e9
             if len(self.detection_stamps) == 0 or det_stamp - self.detection_stamps[-1] > self.image_processing_interval:
                 self.rgb_stack.append(cv_image)
                 det_result = self.inference(cv_image)
                 self.detections_stack.append(det_result)
                 self.detection_stamps.append(det_stamp)
-                while len(self.detections_stack) > 3:
+                while len(self.detections_stack) > 5:
                     self.detection_stamps.pop(0)
                     self.detections_stack.pop(0)
                     self.rgb_stack.pop(0)
                 # Publish the processed image
                 self.new_detection = True
-                # self.get_logger().info('Processed an image.')
+                # rospy.loginfo('Processed an image.')
             else:
                 return
         # except Exception as e:
         #     self.get_logger().error(f'Error processing image: {str(e)}')
 
     def cloud_callback(self, msg):
-        points_numpy = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"))
+        pcd = pc2.read_points_list(msg, field_names=("x", "y", "z"), skip_nans=True)
+        points_numpy = np.array(pcd)
         self.cloud_stack.append(points_numpy)
-        stamp_seconds = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
+        stamp_seconds = msg.header.stamp.secs + msg.header.stamp.nsecs / 1e9
         self.cloud_stamps.append(stamp_seconds)
 
         self.global_cloud = np.vstack([self.global_cloud, points_numpy])
@@ -310,15 +318,15 @@ class MappingNode(Node):
         odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
 
         self.odom_stack.append(odom)
-        self.odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
+        self.odom_stamps.append(msg.header.stamp.secs + msg.header.stamp.nsecs / 1e9)
 
     def handle_object_query(self, query_str: String):
         query_list = json.loads(query_str.data)
         self.queried_captions = None # To stop publishing the captions in the other thread (TODO: improve the way concurrency in handled in the entire system)
         self.queried_captions = self.captioner.query_clip_features(query_list)
-        self.get_logger().info(f'{self.queried_captions}')
+        rospy.loginfo(f'{self.queried_captions}')
 
-    def mapping_callback(self):
+    def mapping_callback(self, event):
         if self.new_detection:
             self.new_detection = False
             
@@ -351,19 +359,22 @@ class MappingNode(Node):
                 return
 
             # clean up the odom stacks
-            while linear_state_stamps[0] < target_left_odom_stamp:
-                linear_states.pop(0)
-                linear_state_stamps.pop(0)
             if self.use_lidar_odom: # two stamp reference point to different containers
                 while angular_state_stamps[0] < target_angular_odom_stamp:
                     angular_states.pop(0)
                     angular_state_stamps.pop(0)
 
+            while linear_state_stamps[0] < min(target_left_odom_stamp, target_angular_odom_stamp):
+                linear_states.pop(0)
+                linear_state_stamps.pop(0)
+
             left_linear_odom = self.odom_stack[linear_state_stamps.index(target_left_odom_stamp)]
             right_linear_odom = self.odom_stack[linear_state_stamps.index(target_right_odom_stamp)]
             angular_odom = self.odom_stack[angular_state_stamps.index(target_angular_odom_stamp)]
 
-            linear_left_ratio = (detection_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
+            linear_left_ratio = (det_linear_state_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
+
+            print(f'linear_left_ratio: {linear_left_ratio}, detection_stamp: {detection_stamp}, target_left_odom_stamp: {target_left_odom_stamp}, target_right_odom_stamp: {target_right_odom_stamp}, target_angular_odom_stamp: {target_angular_odom_stamp}')
 
             # interpolate for the camera odometry
             camera_odom = {}
@@ -378,7 +389,7 @@ class MappingNode(Node):
             # ================== Find the cloud collected around rgb timestamp ==================
             if len(self.cloud_stamps) == 0:
                 return
-            while len(self.cloud_stamps) > 0 and self.cloud_stamps[0] < (detection_stamp - 1.0):
+            while len(self.cloud_stamps) > 0 and self.cloud_stamps[0] < (detection_stamp - 0.4):
                 self.cloud_stack.pop(0)
                 self.cloud_stamps.pop(0)
                 if len(self.cloud_stack) == 0:
@@ -386,18 +397,18 @@ class MappingNode(Node):
 
             neighboring_cloud = []
             for i in range(len(self.cloud_stamps)):
-                if self.cloud_stamps[i] >= (detection_stamp - 0.5) and self.cloud_stamps[i] <= (detection_stamp + 0.1):
+                if self.cloud_stamps[i] >= (detection_stamp - 0.3) and self.cloud_stamps[i] <= (detection_stamp + 0.3):
                     neighboring_cloud.append(self.cloud_stack[i])
             if len(neighboring_cloud) == 0:
                 return
             else:
                 neighboring_cloud = np.concatenate(neighboring_cloud, axis=0)
 
-            # if self.last_camera_odom is not None:
-            #     if np.linalg.norm(self.last_camera_odom['position'] - camera_odom['position']) < 0.05:
-            #         return
+            if self.last_cam_odom is not None:
+                if np.linalg.norm(self.last_cam_odom['position'] - camera_odom['position']) < self.odom_move_dist_thresh:
+                    return
             
-            self.last_camera_odom = camera_odom
+            self.last_cam_odom = camera_odom
 
             # ================== Process detection and tracking ==================
             det_labels = detections['labels']
@@ -426,6 +437,7 @@ class MappingNode(Node):
                 else: # no information need to add to map
                     # detections_tracked['masks'] = []
                     return
+
 
             if self.ANNOTATE:
                 image_anno = image.copy()
@@ -494,12 +506,12 @@ class MappingNode(Node):
 
                 # cv2.imshow("image", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
                 # cv2.waitKey(1)
-
             # ================== Update the map ==================
 
             self.obj_mapper.update_map(detections_tracked, detection_stamp, camera_odom, neighboring_cloud)
 
-            # self.publish_map(detection_stamp)
+            # ================== Publish the map to ros ==============
+            self.publish_map(detection_stamp, global_cloud=self.global_cloud)
 
             if self.do_visualize:
                 if detection_stamp - self.last_vis_stamp > self.vis_interval:
@@ -521,7 +533,7 @@ class MappingNode(Node):
                         bboxes_2d.append(detections_tracked['bboxes'][i])
                         centroids_3d.append(detections_tracked['centroids_3d'][i])
                         class_names.append(detections_tracked['class_names'][i])
-
+                
                 self.captioner.update_object_crops(
                     torch.from_numpy(image).cuda().flip((-1)),
                     bboxes_2d,
@@ -530,39 +542,44 @@ class MappingNode(Node):
                     class_names,
                 )
 
-
-    def publish_map(self, stamp):
-        seconds = int(stamp)
-        nanoseconds = int((stamp - seconds) * 1e9)
-
+    def publish_map(self, stamp, odom=None, global_cloud=None):
         marker_array_msg = MarkerArray()
         marker_array = []
 
         clear_marker = Marker()
         clear_marker.header.frame_id = 'map'
-        clear_marker.header.stamp = Time(seconds=seconds, nanoseconds=nanoseconds-1e4).to_msg()
+        clear_marker.header.stamp = rospy.Time.from_sec(stamp)
         clear_marker.action = Marker.DELETEALL
         marker_array.append(clear_marker)
 
-        map_vis_msgs = self.obj_mapper.to_ros2_msgs(stamp)
+        map_vis_msgs = self.obj_mapper.to_ros1_msgs(stamp)
         
         for msg in map_vis_msgs:
             if isinstance(msg, PointCloud2):
-                self.obj_cloud_pub.publish(msg)
+                self.semantic_cloud_pub.publish(msg)
             elif isinstance(msg, Marker):
                 marker_array.append(msg)
-            else:
-                self.get_logger().error('[In map vis]: Unknown message type.')
+            # else:
+            #     rospy.logerror('[In map vis]: Unknown message type.')
 
         if len(marker_array) > 1:
             marker_array_msg.markers = marker_array
-            self.obj_box_pub.publish(marker_array_msg)
+            self.bbox3d_pub.publish(marker_array_msg)
 
-    def publish_queried_captions(self):
+        if odom is not None:
+            vehicle_tf = ros1_bag_utils.create_tf_msg(odom, stamp, frame_id="map", child_frame_id="sensor")
+            self.tf_pub.publish(vehicle_tf)
+
+        if global_cloud is not None:
+            point_cloud = ros1_bag_utils.create_point_cloud(global_cloud, stamp, frame_id="map")
+            self.global_cloud_pub.publish(point_cloud)
+
+    def publish_queried_captions(self, event):
         if self.queried_captions is None:
             return
         queried_caption_str = json.dumps(self.queried_captions)
         self.caption_pub.publish(String(data=queried_caption_str))
+
 
 if __name__ == "__main__":
     import argparse
@@ -602,23 +619,20 @@ if __name__ == "__main__":
     
     mask_predictor, grounding_processor, grounding_model = load_models()
 
-    byte_tracker_args = SimpleNamespace(
+    # args for BYTETracker
+    args = SimpleNamespace(
         **{
             "track_thresh": 0.2, # +0.1 = thresh for adding new tracklet
-            "track_buffer": 5, # number of frames to delete a tracklet
+            "track_buffer": 5, # number of seconds to delete a tracklet
             "match_thresh": 0.85, # 
             "mot20": False,
             "min_box_area": 100,
         }
     )
-    tracker = BYTETracker(byte_tracker_args)
+    tracker = BYTETracker(args)
     
-    rclpy.init(args=None)
     node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker)
     try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        rospy.loginfo("Shutting down ROS node.")

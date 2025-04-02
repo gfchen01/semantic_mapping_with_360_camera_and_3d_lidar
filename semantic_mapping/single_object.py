@@ -6,11 +6,12 @@ import open3d as o3d
 
 DIMENSION_PRIORS = {
 'default': (5.0, 5.0, 5.0), 
-'table': (3.0, 2.0, 2.0), 
+'table': (3.0, 3.0, 2.0), 
 'chair': (1.0, 1.0, 1.0),
 'sofa': (2.5, 2.5, 2.0),
 'pottedplant': (1.0, 1.0, 1.0),
 'fireextinguisher': (0.5, 0.5, 0.5),
+'garbagebin': (1.0, 1.0, 1.0),
 # 'door': (1.0, 0.2, 3.0),
 # 'case': (1.0, 1.0)
 }

@@ -1,11 +1,11 @@
 platform: wheelchair
-use_lidar_odom: true
-detection_linear_state_time_bias: 0.0
+use_lidar_odom: false
+detection_linear_state_time_bias: -0.05
 detection_angular_state_time_bias: 0.0
 image_processing_interval: 0.5
 visualize: true
 vis_interval: 0.5
-annotate_image: false
+annotate_image: true
 
 prompts:
   chair:
@@ -25,10 +25,6 @@ prompts:
     - floor
   ceiling:
     - ceiling
-  light:
-    - hangling light
-  background:
-    - background
   garbagebin:
     - garbage bin
   refrigerator:
