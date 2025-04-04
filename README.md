@@ -1,6 +1,35 @@
-## Install
+## Introduction
 
-### Setup repository and submodules
+This is a 3D open-vocabulary instance-level semantic mapping system. The system takes stamped images, LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding box estimates. The system uses DINO and SAM2 for open-vocabulary object detection and segmentation on images, and manages the 3D object clustering, tracking, and filtering to provide a 3D object-level map, aiming to provide a real-time and easily adaptable spatial representation for language navigation and other upstream tasks.
+
+<figure style="text-align: center;">
+  <img src="./images/3d_vis.png" width="90%"/>
+  <figcaption style="text-align: center;">Rerun visualization of Mapping Result in 3D</figcaption>
+</figure>
+
+<figure style="text-align: center;">
+  <img src="./images/2d_vis.png" width="90%"/>
+  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input</figcaption>
+</figure>
+
+
+
+## Repository Setup
+
+This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
+[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+
+<p float="center">
+  <img src="images/mecanum_platform.jpg" width="45%" />
+  <img src="images/wheelchair.jpg" width="30%" />
+</p>
+
+### Requirements
+
+1. GPU with >16GB memory
+2. Miniforge install is required for setting up ROS. Follow the install instructions [here](https://github.com/conda-forge/miniforge).
+
+### Setup submodules
 
 ```bash
 git clone https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar.git
@@ -10,13 +39,11 @@ git submodule update
 
 ### Setup environment
 
-Using miniforge is required for setting up ROS. Follow instructions in [miniforge repo].(https://github.com/conda-forge/miniforge) to install miniforge.
-
-Then do the following:
+First create the enviornment:
 
 ``` bash
-conda create --name mapping_ros2 python=3.11
-conda activate mapping_ros2
+conda create --name mapping_ros1 python=3.11
+conda activate mapping_ros1
 ```
 
 To make ROS accessible in the environment, install ROS/ROS2 using robostack.
@@ -26,16 +53,16 @@ To make ROS accessible in the environment, install ROS/ROS2 using robostack.
 # this adds the conda-forge channel to the new created environment configuration 
 conda config --env --add channels conda-forge
 # and the robostack channel
-conda config --env --add channels robostack-jazzy
+conda config --env --add channels robostack-noetic
 
 # remove the defaults channel just in case, this might return an error if it is not in the list which is ok
 conda config --env --remove channels defaults
 
 # Install ros-noetic into the environment (ROS1)
-mamba install ros-jazzy-desktop
+mamba install ros-noetic-desktop
 
 conda deactivate
-conda activate mapping_ros2
+conda activate mapping_ros1
 
 # mamba install compilers cmake pkg-config make ninja colcon-common-extensions catkin_tools rosdep
 ```
@@ -63,11 +90,66 @@ cd ../
 pip install . # Install semantic_mapping package
 ```
 
-# Tests
-```bash
-# mecanum simulation
-python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_sim.yaml
+## Run
+**First**, make sure the following topics are available:
 
-# mecanum real
-python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_real_general.yaml
+| Topic Name        | Message Type            | Note                                      |
+| ----------------- | ----------------------- | ----------------------------------------- |
+| /registered_scan  | sensor_msgs/PointCloud2 | Registered point cloud in the world frame |
+| /camera/image     | sensor_msgs/Image       | 360 Images                                |
+| /state_estimation | nav_msgs/Odometry       | Odometry of the LiDAR frame               |
+
+Please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros1/semantic_mapping/mapping_ros1_node.py#L181-L205).
+
+**Second**, check the configs. Here is an example config:
+
+```yaml
+platform: wheelchair # name of the platform. Implies extrinsics.
+
+use_lidar_odom: false # If set true, the LiDAR odometry named /aft_mapped_to_init_incremental should be provided, which is a lower frequency but more accurate odometry from the LiDAR SLAM
+
+detection_linear_state_time_bias: -0.05 # Compensation on the camera odometry estimate of linear states
+
+detection_angular_state_time_bias: 0.0 # Compensation on the camera odometry estimate of angular states
+
+image_processing_interval: 0.5 # Period in which the semantic inference and mapping are performed
+
+visualize: true # If set true, a Rerun window spawns for visualization
+
+vis_interval: 0.5 # Period in which map is visualized
+
+annotate_image: false # if set true, 2D images with annotated semantic masks and LiDAR projections will be saved
+
+# prompts 
+prompts:
+    chair:
+    prompts: # prompts that actually goes to DINO
+      - chair
+    is_instance: true # Whether the object should be treated as instance-level
+  sofa:
+    prompts:
+      - sofa
+    is_instance: true
+  table:
+    prompts:
+      - table
+    is_instance: true
+  wall:
+    prompts:
+      - wall
+      - white wall
+      - blue wall
+      - black wall
+    is_instance: false
 ```
+
+**Finally**, run the ros node with path to the config file:
+
+```bash
+# wheelchair real
+python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
+```
+
+When the ros node is shown to run stably, you can start operating the platform. 
+
+Alternatively, an example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, play it with `rosbag play sqh_2.bag`, and you should be able to see the visualized map in Rerun window.
