@@ -1,6 +1,6 @@
 ## Introduction
 
-The system takes stamped images, LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding boxes estimates. The system supports custom text prompts for objects (open-vocabulary), based on DINO and SAM2.
+This 3D open-vocabulary instance-level semantic mapping system supports a 360-degree camera and 3D LiDAR. The system takes stamped images, LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding box estimates. The system uses DINO and SAM2 for open-vocabulary object detection and segmentation on images, and manages the 3D object clustering, tracking, and filtering to provide a 3D object-level map, aiming to provide a real-time and easily adaptable spatial representation for language navigation and other upstream tasks.
 
 <figure style="text-align: center;">
   <img src="./images/3d_vis.png" width="90%"/>
