@@ -96,7 +96,7 @@ First, make sure the following topics are available:
 | Topic Name        | Message Type            | Note                                      |
 | ----------------- | ----------------------- | ----------------------------------------- |
 | /registered_scan  | sensor_msgs/PointCloud2 | Registered point cloud in the world frame |
-| /camera/image     |                         | 360 Images                                |
+| /camera/image     | sensor_msgs/Image       | 360 Images                                |
 | /state_estimation | nav_msgs/Odometry       | Odometry of the LiDAR frame               |
 
 Please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros1/semantic_mapping/mapping_ros1_node.py#L181-L205).
