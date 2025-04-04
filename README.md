@@ -165,9 +165,10 @@ An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy
   <figcaption style="text-align: center;">Rerun visualization of Mapping Result in 3D</figcaption>
 </figure>
 
+
 <figure style="text-align: center;">
   <img src="./images/2d_vis.png" width="90%"/>
-  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input</figcaption>
+  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input (set `annotate_image: true` in config)</figcaption>
 </figure>
 
 
