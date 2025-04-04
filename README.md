@@ -17,7 +17,7 @@ The system takes stamped images, LiDAR scans, and odometry as inputs. The output
   <img src="images/mecanum_platform.jpg" width="45%" />
   <img src="images/wheelchair.jpg" width="30%" />
 </p>
-Supported platforms:
+Supported platforms
 
 ## Repository Setup
 
