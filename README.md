@@ -12,12 +12,12 @@ The system takes stamped images, LiDAR scans, and odometry as inputs. The output
   <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input</figcaption>
 </figure>
 
-Supported platforms:
 
 <p float="center">
   <img src="images/mecanum_platform.jpg" width="45%" />
   <img src="images/wheelchair.jpg" width="30%" />
 </p>
+Supported platforms:
 
 ## Repository Setup
 
