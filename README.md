@@ -91,7 +91,7 @@ pip install . # Install semantic_mapping package
 ```
 
 ## Run
-First, make sure the following topics are available:
+**First**, make sure the following topics are available:
 
 | Topic Name        | Message Type            | Note                                      |
 | ----------------- | ----------------------- | ----------------------------------------- |
@@ -101,7 +101,7 @@ First, make sure the following topics are available:
 
 Please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros1/semantic_mapping/mapping_ros1_node.py#L181-L205).
 
-Second, check the configs. Here is an example config:
+**Second**, check the configs. Here is an example config:
 
 ```yaml
 platform: wheelchair # name of the platform. Implies extrinsics.
@@ -143,10 +143,13 @@ prompts:
     is_instance: false
 ```
 
-Finally, run the ros node with path to the config file:
+**Finally**, run the ros node with path to the config file:
 
 ```bash
 # wheelchair real
 python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
 ```
 
+When the ros node is shown to run stably, you can start operating the platform. 
+
+Alternatively, an example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, play it with `rosbag play sqh_2.bag`, and you should be able to see the visualized map in Rerun window.
