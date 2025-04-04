@@ -379,8 +379,6 @@ class MappingNode:
 
             linear_left_ratio = (det_linear_state_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
 
-            print(f'linear_left_ratio: {linear_left_ratio}, detection_stamp: {detection_stamp}, target_left_odom_stamp: {target_left_odom_stamp}, target_right_odom_stamp: {target_right_odom_stamp}, target_angular_odom_stamp: {target_angular_odom_stamp}')
-
             # interpolate for the camera odometry
             camera_odom = {}
             camera_odom['position'] = np.array(right_linear_odom['position']) * linear_left_ratio + np.array(left_linear_odom['position']) * (1 - linear_left_ratio)
