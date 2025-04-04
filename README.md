@@ -90,7 +90,7 @@ pip install . # Install semantic_mapping package
 
 If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros1/semantic_mapping/mapping_ros1_node.py#L181-L205).
 
-**Second**, check the configs. Here is an example config:
+**Second**, check the [configs](./config/). Here is an example config:
 
 ```yaml
 platform: wheelchair # name of the platform. Implies extrinsics.
@@ -140,9 +140,11 @@ First, setup the simulated base system following the instructions here: [wheelch
 
 After running `system_bring_up.sh`, you should see an Rviz like this:
 
-![](./images/wheelchair_sim.png)
+<p float="center">
+<img src="./images/wheelchair_sim.png" height="600">
+</p>
 
-Also the Unity simulation environment like this:
+And an Unity simulation environment like this:
 
 ![](./images/wheelchair_unity.png)
 
@@ -152,7 +154,7 @@ python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.
 ```
 When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization like this:
 
-![](./images/wheelchair_mapping_3d_sim.png.png)
+![](./images/wheelchair_mapping_3d_sim.png)
 
 ### Run in real-world
 
