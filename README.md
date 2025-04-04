@@ -3,7 +3,6 @@
 The system takes stamped images, LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding boxes estimates. The system supports custom text prompts for objects (open-vocabulary), based on DINO and SAM2.
 
 <figure style="text-align: center;">
-<figure style="display: inline-block; margin: 10px;">
   <img src="./images/3d_vis.png" width="90%"/>
   <figcaption style="text-align: center;">Rerun visualization of Mapping Result in 3D</figcaption>
 </figure>
@@ -13,6 +12,12 @@ The system takes stamped images, LiDAR scans, and odometry as inputs. The output
   <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input</figcaption>
 </figure>
 
+Supported platforms:
+
+<p float="center">
+  <img src="images/mecanum_platform.jpg" width="45%" />
+  <img src="images/wheelchair.jpg" width="30%" />
+</p>
 
 ## Repository Setup
 
