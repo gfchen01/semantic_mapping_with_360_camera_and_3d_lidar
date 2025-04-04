@@ -14,21 +14,21 @@ from .visualizer import VisualizerRerun
 import copy
 
 INSTANCE_LEVEL_OBJECTS = [
-    'chair', 
-    'table', 
-    'sofa', 
-    'garbagebin', 
-    'cabinet', 
-    'microwave', 
-    'door', 
-    'refrigerator', 
-    'sign', 
-    'pottedplant', 
-    'light',
-    'vehicle',
-    'painting',
-    'box',
-    'fireextinguisher',
+    # 'chair', 
+    # 'table', 
+    # 'sofa', 
+    # 'garbagebin', 
+    # 'cabinet', 
+    # 'microwave', 
+    # 'door', 
+    # 'refrigerator', 
+    # 'sign', 
+    # 'pottedplant', 
+    # 'light',
+    # 'vehicle',
+    # 'painting',
+    # 'box',
+    # 'fireextinguisher',
 ]
 
 OMIT_OBJECTS = [
@@ -75,6 +75,14 @@ class ObjMapper():
         self.num_angle_bin = 20
         self.percentile_thresh = 0.8
         self.clear_outliers_cycle = 1
+
+        for label, val in self.label_template.items():
+            if val["is_instance"] and label not in INSTANCE_LEVEL_OBJECTS:
+                INSTANCE_LEVEL_OBJECTS.append(label)
+            self.label_template[label] = val['prompts']
+        
+        print(f"Instance level objects: {INSTANCE_LEVEL_OBJECTS}")
+        print(f"label template: {self.label_template}")
 
         # # possibly useful params
         # self.odom_move_dist_thres = 0.1

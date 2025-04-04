@@ -1,6 +1,30 @@
-## Install
+## Introduction
 
-### Setup repository and submodules
+The system takes stamped images, LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding boxes estimates. The system supports custom text prompts for objects (open-vocabulary), based on DINO and SAM2.
+
+<figure style="text-align: center;">
+<figure style="display: inline-block; margin: 10px;">
+  <img src="./images/3d_vis.png" width="90%"/>
+  <figcaption style="text-align: center;">Rerun visualization of Mapping Result in 3D</figcaption>
+</figure>
+
+<figure style="text-align: center;">
+  <img src="./images/2d_vis.png" width="90%"/>
+  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input</figcaption>
+</figure>
+
+
+## Repository Setup
+
+This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
+[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+
+### Requirements
+
+1. GPU with >16GB memory
+2. Miniforge install is required for setting up ROS. Follow the install instructions [here](https://github.com/conda-forge/miniforge).
+
+### Setup submodules
 
 ```bash
 git clone https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar.git
@@ -10,9 +34,7 @@ git submodule update
 
 ### Setup environment
 
-Using miniforge is required for setting up ROS. Follow instructions in [miniforge repo].(https://github.com/conda-forge/miniforge) to install miniforge.
-
-Then do the following:
+First create the enviornment:
 
 ``` bash
 conda create --name mapping_ros1 python=3.11
@@ -63,8 +85,63 @@ cd ../
 pip install . # Install semantic_mapping package
 ```
 
-# Tests
+## Run
+First, make sure the following topics are available:
+
+| Topic Name        | Message Type            | Note                                      |
+| ----------------- | ----------------------- | ----------------------------------------- |
+| /registered_scan  | sensor_msgs/PointCloud2 | Registered point cloud in the world frame |
+| /camera/image     |                         | 360 Images                                |
+| /state_estimation | nav_msgs/Odometry       | Odometry of the LiDAR frame               |
+
+Please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros1/semantic_mapping/mapping_ros1_node.py#L181-L205).
+
+Second, check the configs. Here is an example config:
+
+```yaml
+platform: wheelchair # name of the platform. Implies extrinsics.
+
+use_lidar_odom: false # If set true, the LiDAR odometry named /aft_mapped_to_init_incremental should be provided, which is a lower frequency but more accurate odometry from the LiDAR SLAM
+
+detection_linear_state_time_bias: -0.05 # Compensation on the camera odometry estimate of linear states
+
+detection_angular_state_time_bias: 0.0 # Compensation on the camera odometry estimate of angular states
+
+image_processing_interval: 0.5 # Period in which the semantic inference and mapping are performed
+
+visualize: true # If set true, a Rerun window spawns for visualization
+
+vis_interval: 0.5 # Period in which map is visualized
+
+annotate_image: false # if set true, 2D images with annotated semantic masks and LiDAR projections will be saved
+
+# prompts 
+prompts:
+    chair:
+    prompts: # prompts that actually goes to DINO
+      - chair
+    is_instance: true # Whether the object should be treated as instance-level
+  sofa:
+    prompts:
+      - sofa
+    is_instance: true
+  table:
+    prompts:
+      - table
+    is_instance: true
+  wall:
+    prompts:
+      - wall
+      - white wall
+      - blue wall
+      - black wall
+    is_instance: false
+```
+
+Finally, run the ros node with path to the config file:
+
 ```bash
 # wheelchair real
 python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
 ```
+

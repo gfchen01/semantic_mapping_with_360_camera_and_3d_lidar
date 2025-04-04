@@ -9,44 +9,61 @@ annotate_image: true
 
 prompts:
   chair:
-    - chair
+    prompts:
+      - chair
+    is_instance: true
   sofa:
-    - sofa
+    prompts:
+      - sofa
+    is_instance: true
   table:
-    - table
+    prompts:
+      - table
+    is_instance: true
   wall:
-    - wall
-    - white wall
-    - blue wall
-    - black wall
+    prompts:
+      - wall
+      - white wall
+      - blue wall
+      - black wall
+    is_instance: false
   cabinet:
-    - white cabinet
+    prompts:
+      - white cabinet
+    is_instance: true
   floor:
-    - floor
+    prompts:
+      - floor
+    is_instance: false
   ceiling:
-    - ceiling
+    prompts:
+      - ceiling
+    is_instance: false
   garbagebin:
-    - garbage bin
+    prompts:
+      - garbage bin
+    is_instance: true
   refrigerator:
-    - silver refrigerator
-  column:
-    - structural column
-  sign:
-    - safety sign
-    - caution sign
-  microwave:
-    - microwave
-  coffeemachine:
-    - coffee machine
+    prompts:
+      - silver refrigerator
+    is_instance: true
   pottedplant:
-    - small potted plant
-    - plant pot
-    - plant
+    prompts:
+      - small potted plant
+      - plant pot
+      - plant
+    is_instance: true
   fireextinguisher:
-    - fire extinguisher
+    prompts:
+      - fire extinguisher
+    is_instance: true
   door:
-    - door
-  # television:
-  #   - television
-  # painting:
-  #   - painting on the wall
+    prompts:
+      - door
+    is_instance: true
+  sign:
+    prompts:
+      - safety sign
+      - caution sign
+    is_instance: true
+    
