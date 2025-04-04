@@ -3,8 +3,8 @@
 This is a 3D open-vocabulary instance-level semantic mapping system. The system takes stamped panoramic images, 3D LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding box estimates. The system uses [Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2) for open-vocabulary object detection and segmentation on images, and manages the 3D object clustering, tracking, and filtering to provide a 3D object-level map, aiming to provide a real-time and easily adaptable spatial representation for language navigation and other upstream tasks. Below are the sensor setups we have tested:
 
 <p float="center">
-  <img src="images/mecanum_wheel.jpg" height="500" />
-  <img src="images/wheelchair.jpg" height="500" />
+  <img src="images/mecanum_wheel.jpg" height="300" />
+  <img src="images/wheelchair.jpg" height="300" />
 </p>
 
 
