@@ -13,16 +13,16 @@ This is a 3D open-vocabulary instance-level semantic mapping system. The system 
 </figure>
 
 
-<p float="center">
-  <img src="images/mecanum_platform.jpg" width="45%" />
-  <img src="images/wheelchair.jpg" width="30%" />
-</p>
-Supported platforms
 
 ## Repository Setup
 
 This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
 [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+
+<p float="center">
+  <img src="images/mecanum_platform.jpg" width="45%" />
+  <img src="images/wheelchair.jpg" width="30%" />
+</p>
 
 ### Requirements
 
