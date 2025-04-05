@@ -132,7 +132,7 @@ class ObjMapper():
         for label, val in self.label_template.items():
             if val["is_instance"] and label not in INSTANCE_LEVEL_OBJECTS:
                 INSTANCE_LEVEL_OBJECTS.append(label)
-            self.label_template[label] = C['prompts']
+            self.label_template[label] = val['prompts']
         
         print(f"Instance level objects: {INSTANCE_LEVEL_OBJECTS}")
         print(f"label template: {self.label_template}")

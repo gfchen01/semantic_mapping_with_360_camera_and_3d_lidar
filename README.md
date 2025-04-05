@@ -26,7 +26,7 @@ First create the environment:
 
 ``` bash
 conda create --name mapping_ros1 python=3.11
-conda activate mapping_ros1
+conda activate mapping_ros2
 ```
 
 To make ROS accessible in the environment, install ROS/ROS2 using robostack:
@@ -35,16 +35,16 @@ To make ROS accessible in the environment, install ROS/ROS2 using robostack:
 # this adds the conda-forge channel to the new created environment configuration 
 conda config --env --add channels conda-forge
 # and the robostack channel
-conda config --env --add channels robostack-noetic
+conda config --env --add channels robostack-jazzy
 
 # remove the defaults channel just in case, this might return an error if it is not in the list which is ok
 conda config --env --remove channels defaults
 
 # Install ros-noetic into the environment (ROS1)
-mamba install ros-noetic-desktop
+mamba install ros-jazzy-desktop
 
 conda deactivate
-conda activate mapping_ros1
+conda activate mapping_ros2
 ```
 
 Install Grounded-SAM-2:
@@ -88,14 +88,14 @@ pip install . # Install semantic_mapping package
 | /camera/image     | sensor_msgs/Image       | 360 Images                                |
 | /state_estimation | nav_msgs/Odometry       | Odometry of the LiDAR frame               |
 
-If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros1/semantic_mapping/mapping_ros1_node.py#L181-L205).
+If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
 
 **Second**, check the [configs](./config/). Here is an example config:
 
 ```yaml
 platform: mecanum # name of the platform. Implies extrinsics.
 
-use_lidar_odom: true # If set true, the LiDAR odometry named /aft_mapped_to_init_incremental should be provided, which is a lower frequency but more accurate odometry from the LiDAR SLAM
+use_lidar_odom: true # If set true, the LiDAR odometry named /aft_mapped_to_init_incremental should be provided, which is a more accurate low frequency odometry from the LiDAR SLAM
 
 detection_linear_state_time_bias: -0.05 # Compensation on the camera odometry estimate of linear states
 
@@ -134,40 +134,20 @@ prompts:
 
 **Then**, you can either run in simulation or real-world system (rosbag).
 
-### Run with simulation
-
-First, setup the simulated base system following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
-
-After running `system_bring_up.sh`, you should see an Rviz like this:
-
-<p float="center">
-<img src="./images/wheelchair_sim.png" height="600">
-</p>
-
-And an Unity simulation environment like this:
-
-![](./images/wheelchair_unity.png)
-
-```bash
-# wheelchair platform
-python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
-```
-When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization like this:
-
-![](./images/wheelchair_mapping_3d_sim.png)
 
 ### Run in real-world
 
 An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with `python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml`, then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
 
+
 <figure style="text-align: center;">
-  <img src="./images/3d_vis.png" width="90%"/>
+  <img src="./images/mecanum_real_3d_vis.png" width="90%"/>
   <figcaption style="text-align: center;">Rerun visualization of Mapping Result in 3D</figcaption>
 </figure>
 
 
 <figure style="text-align: center;">
-  <img src="./images/2d_vis.png" width="90%"/>
+  <img src="./images/mecanum_real_2d_vis.png" width="90%"/>
   <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input (set `annotate_image: true` in config)</figcaption>
 </figure>
 

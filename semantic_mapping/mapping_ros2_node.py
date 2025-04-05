@@ -209,13 +209,10 @@ class MappingNode(Node):
             os.makedirs(self.ANNOTATE_OUT_DIR, exist_ok=True)
 
             self.VERBOSE_ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'verbose_3d_in_loop')
-            self.ORIG_ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'orig_3d_in_loop')
             if os.path.exists(self.VERBOSE_ANNOTATE_OUT_DIR):
                 os.system(f"rm -r {self.VERBOSE_ANNOTATE_OUT_DIR}")
             os.makedirs(self.VERBOSE_ANNOTATE_OUT_DIR, exist_ok=True)
-            if os.path.exists(self.ORIG_ANNOTATE_OUT_DIR):
-                os.system(f"rm -r {self.ORIG_ANNOTATE_OUT_DIR}")
-            os.makedirs(self.ORIG_ANNOTATE_OUT_DIR, exist_ok=True)
+
 
         self.bridge = CvBridge()
         self.get_logger().info('Semantic mapping node has been started.')
