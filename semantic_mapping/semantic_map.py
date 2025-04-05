@@ -65,20 +65,20 @@ def serialize_objs_to_bag(writer, obj_mapper, stamp: float, raw_cloud=None, odom
         writer.write('tf', serialize_message(tf_transform), int(stamp * 1e9))
 
 INSTANCE_LEVEL_OBJECTS = [
-    'chair', 
-    'table', 
-    'sofa', 
-    'garbagebin', 
-    'cabinet', 
-    'microwave', 
-    'door', 
-    'refrigerator', 
-    'sign', 
-    'pottedplant', 
-    'light',
-    'vehicle',
-    'painting',
-    'box',
+    # 'chair', 
+    # 'table', 
+    # 'sofa', 
+    # 'garbagebin', 
+    # 'cabinet', 
+    # 'microwave', 
+    # 'door', 
+    # 'refrigerator', 
+    # 'sign', 
+    # 'pottedplant', 
+    # 'light',
+    # 'vehicle',
+    # 'painting',
+    # 'box',
 ]
 
 OMIT_OBJECTS = [
@@ -128,6 +128,14 @@ class ObjMapper():
 
         # # possibly useful params
         # self.odom_move_dist_thres = 0.1
+
+        for label, val in self.label_template.items():
+            if val["is_instance"] and label not in INSTANCE_LEVEL_OBJECTS:
+                INSTANCE_LEVEL_OBJECTS.append(label)
+            self.label_template[label] = C['prompts']
+        
+        print(f"Instance level objects: {INSTANCE_LEVEL_OBJECTS}")
+        print(f"label template: {self.label_template}")
 
     def track_objects(self, det_bboxes, det_labels, det_confidences, detection_odom):
         labels_mask = np.ones_like(det_labels).astype(bool)
@@ -261,7 +269,6 @@ class ObjMapper():
         # obj_clouds_world = generate_seg_cloud(cloud_body, bboxes_mask, labels, confidences, R_b2w, t_b2w, platform='diablo')
         
         obj_clouds_world = self.cloud_image_fusion.generate_seg_cloud(cloud_body, masks, labels, confidences, R_b2w, t_b2w)
-
 
         for cloud_cnt, cloud in enumerate(obj_clouds_world):
             cloud_to_odom_dist = np.linalg.norm(cloud[:, :3] - t_b2w, axis=1)

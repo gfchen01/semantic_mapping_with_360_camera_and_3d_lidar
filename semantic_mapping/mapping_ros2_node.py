@@ -121,8 +121,9 @@ class MappingNode(Node):
         self.label_template = config['prompts']
         self.text_prompt = []
         for value in self.label_template.values():
-            self.text_prompt += value
+            self.text_prompt += value['prompts']
         self.text_prompt = " . ".join(self.text_prompt) + " ."
+        print(f"Text prompt: {self.text_prompt}")
 
         # ROS2 subscriptions and publishers
         self.rgb_sub = self.create_subscription(
@@ -185,7 +186,11 @@ class MappingNode(Node):
         
         self.cloud_img_fusion = CloudImageFusion(platform=self.platform)
 
-        self.obj_mapper = ObjMapper(tracker=tracker, cloud_image_fusion=self.cloud_img_fusion, label_template=self.label_template, captioner=self.captioner, visualize=self.do_visualize)
+        self.obj_mapper = ObjMapper(tracker=tracker, 
+                                    cloud_image_fusion=self.cloud_img_fusion, 
+                                    label_template=self.label_template, 
+                                    captioner=self.captioner, 
+                                    visualize=self.do_visualize)
 
         if self.ANNOTATE:
             self.box_annotator = sv.BoxAnnotator(color=ColorPalette.DEFAULT)
