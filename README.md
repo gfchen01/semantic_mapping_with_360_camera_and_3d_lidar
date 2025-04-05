@@ -156,5 +156,5 @@ An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy
 
 Contributors: [Guofei Chen](https://gfchen01.github.io), [Changwei Yao](https://github.com/chadwick-yao), [Ji Zhang](https://frc.ri.cmu.edu/~zhangji/).
 
-[Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2), [byte_track](git@github.com:ifzhang/ByteTrack.git), and [cython_bbox](git@github.com:samson-wang/cython_bbox.git) are from open-source releases.
+[Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2), [byte_track](https://github.com/ifzhang/ByteTrack), and [cython_bbox](https://github.com/samson-wang/cython_bbox) are from open-source releases.
 
