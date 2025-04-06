@@ -35,13 +35,13 @@ To make ROS accessible in the environment, install ROS/ROS2 using robostack:
 # this adds the conda-forge channel to the new created environment configuration 
 conda config --env --add channels conda-forge
 # and the robostack channel
-conda config --env --add channels robostack-jazzy
+conda config --env --add channels robostack-noetic
 
 # remove the defaults channel just in case, this might return an error if it is not in the list which is ok
 conda config --env --remove channels defaults
 
 # Install ros-noetic into the environment (ROS1)
-mamba install ros-jazzy-desktop
+mamba install ros-noetic-desktop
 
 conda deactivate
 conda activate mapping_ros2
@@ -80,7 +80,7 @@ pip install . # Install semantic_mapping package
 ```
 
 ## Run
-**First**, make sure the following topics are available:
+Our system subscribes to the following topics:
 
 | Topic Name        | Message Type            | Note                                      |
 | ----------------- | ----------------------- | ----------------------------------------- |
@@ -90,7 +90,7 @@ pip install . # Install semantic_mapping package
 
 If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
 
-**Second**, check the [configs](./config/). Here is an example config:
+**Before running**, check the [configs](./config/). Here is an example config:
 
 ```yaml
 platform: mecanum # name of the platform. Implies extrinsics.
@@ -132,8 +132,30 @@ prompts:
     is_instance: false
 ```
 
-**Then**, you can either run in simulation or real-world system (rosbag).
+You can either run in simulation or real-world system (rosbag).
 
+### Run with simulation
+ 
+ First, setup the simulated base system following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+ 
+ After running `system_bring_up.sh`, you should see an Rviz like this:
+ 
+ <p float="center">
+ <img src="./images/wheelchair_sim.png" height="600">
+ </p>
+ 
+ And an Unity simulation environment like this:
+ 
+ ![](./images/wheelchair_unity.png)
+ 
+ Then start the semantic mapping system:
+ ```bash
+ # wheelchair platform
+ python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
+ ```
+ When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization like this:
+ 
+ ![](./images/wheelchair_mapping_3d_sim.png)
 
 ### Run in real-world
 
@@ -141,13 +163,13 @@ An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy
 
 
 <figure style="text-align: center;">
-  <img src="./images/mecanum_real_3d_vis.png" width="90%"/>
+  <img src="./images/3d_vis.png" width="90%"/>
   <figcaption style="text-align: center;">Rerun visualization of Mapping Result in 3D</figcaption>
 </figure>
 
 
 <figure style="text-align: center;">
-  <img src="./images/mecanum_real_2d_vis.png" width="90%"/>
+  <img src="./images/2d_vis.png" width="90%"/>
   <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input (set `annotate_image: true` in config)</figcaption>
 </figure>
 
