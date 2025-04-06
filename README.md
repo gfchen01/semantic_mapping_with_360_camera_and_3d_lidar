@@ -141,7 +141,7 @@ You can either run in simulation or real-world system (rosbag).
  
  First, setup the simulated base system following the instructions here: [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git).
  
- Then start the base autonomy system with `system_bring_up.sh` or `system_bring_up_with_route_planner.sh`, you should see an Rviz and the unity simulation like this:
+ Then start the base autonomy system with `system_simulation.sh` or `system_simulation_with_route_planner.sh`, you should see an Rviz and the unity simulation like this:
  
  <p float="center">
  <img src="./images/mecanum_sim.png">
