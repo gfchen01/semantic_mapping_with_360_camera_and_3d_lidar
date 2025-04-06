@@ -141,9 +141,9 @@ You can either run in simulation or real-world system (rosbag).
 
 ### Run with simulation
  
- First, setup the simulated base system following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+ First, set up the simulated base autonomy system by following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
  
- After launch base autonomy system with `system_bring_up.sh` or `system_simulation_with_route_planner.sh`, you should see an Rviz and the unity simulation like this:
+ After launching base autonomy system with `system_bring_up.sh` or `system_simulation_with_route_planner.sh`, you should see an Rviz and the unity simulation like this:
  
  <p float="center">
  <img src="./images/wheelchair_sim.png">
