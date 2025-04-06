@@ -141,7 +141,7 @@ You can either run in simulation or real-world system (rosbag).
 
 ### Run with simulation
  
- First, set up the simulated base autonomy system by following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+ First, set up the simulated base autonomy system by following the instructions here: [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity).
  
  After launching base autonomy system with `system_bring_up.sh`, you should see an Rviz and the unity simulation like this:
  
@@ -160,7 +160,7 @@ You can either run in simulation or real-world system (rosbag).
 
 ### Run in real-world
 
-An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system [can be downloaded here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with: 
+An example bag recorded with [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity) on real-world system [can be downloaded here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with: 
 ```bash
 python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
 ```
