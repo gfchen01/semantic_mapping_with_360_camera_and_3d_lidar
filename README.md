@@ -1,6 +1,6 @@
 ## Introduction
 
-This is a 3D open-vocabulary instance-level semantic mapping system. The system takes stamped panoramic images, 3D LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding box estimates. The system uses [Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2) for open-vocabulary object detection and segmentation on images, and manages the 3D object clustering, tracking, and filtering to provide a 3D object-level map, aiming to provide a real-time and easily adaptable spatial representation for language navigation and other upstream tasks. Below are the sensor setups we have tested. 
+This is a 3D open-vocabulary instance-level semantic mapping module. The system takes stamped panoramic images, 3D LiDAR scans, and odometry as inputs. The outputs are 3D instance-level object centroids and 3D bounding box estimates. The system uses [Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2) for open-vocabulary object detection and segmentation on images, and manages the 3D object clustering, tracking, and filtering to provide a 3D object-level map, aiming to provide a real-time and easily adaptable spatial representation for language navigation and other upstream tasks. Below are the sensor setups we have tested. 
 
 <p float="center">
   <img src="images/mecanum_wheel.jpg" height="300" />
@@ -143,13 +143,13 @@ You can either run in simulation or real-world system (rosbag).
  
  First, setup the simulated base system following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
  
- After running `system_bring_up.sh`, you should see an Rviz and the unity simulation like this:
+ After launch base autonomy system with `system_bring_up.sh` or `system_simulation_with_route_planner.sh`, you should see an Rviz and the unity simulation like this:
  
  <p float="center">
  <img src="./images/wheelchair_sim.png">
  </p>
  
- Then start the semantic mapping system:
+ Then start the semantic mapping module:
  ```bash
  # wheelchair platform
  python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
