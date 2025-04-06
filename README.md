@@ -12,20 +12,23 @@ Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta
 ## Repository Setup
 
 This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
-[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity).
 
 
 ### Requirements
 
 1. GPU with >16GB memory
-2. Miniforge install is required for setting up ROS. Follow the install instructions [here](https://github.com/conda-forge/miniforge).
+2. Miniforge install is required for setting up ROS. [Follow the install instructions here](https://github.com/conda-forge/miniforge).
 
 ### Setup the environment
 
-First create the environment:
+First, clone the repo and create the environment:
 
 ``` bash
-conda create --name mapping_ros1 python=3.11
+git clone https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar.git
+git checkout ros2
+
+conda create --name mapping_ros2 python=3.11
 conda activate mapping_ros2
 ```
 
@@ -88,9 +91,9 @@ Our system subscribes to the following topics:
 | /camera/image     | sensor_msgs/Image       | 360 Images                                |
 | /state_estimation | nav_msgs/Odometry       | Odometry of the LiDAR frame               |
 
-If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
+If you need to change the topic names you subscribe to, please check [the topic subscriptions here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
 
-**Before running**, check the [configs](./config/). Here is an example config:
+**Before running**, [check the configs](./config/). Here is an example config:
 
 ```yaml
 platform: mecanum # name of the platform. Implies extrinsics.
@@ -134,10 +137,34 @@ prompts:
 
 You can either run in simulation or real-world system (rosbag).
 
+### Run with simulation
+ 
+ First, setup the simulated base system following the instructions here: [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git).
+ 
+ After running `system_bring_up.sh` in the base system, you should see an Rviz and the unity simulation like this:
+ 
+ <p float="center">
+ <img src="./images/mecanum_sim.png">
+ </p>
+ 
+ Then start the semantic mapping system:
+ ```bash
+ # wheelchair platform
+ python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_sim.yaml
+ ```
+ When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization:
+ 
+ ![](./images/ros2_sim_vis.png)
 
 ### Run in real-world
 
-An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with `python -m semantic_mapping.mapping_ros1_node --config config/mapping_mecanum_real.yaml`, then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
+An example bag recorded with [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git) on real-world system [can be downloaded here](https://drive.google.com/file/d/1upuVfn2NmJdryzzpOvqMzZbjqAoekk00/view?usp=sharing). After downloading the bag, start the ros node with:
+
+```bash
+python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_real.yaml
+```
+
+Then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
 
 
 <figure style="text-align: center;">
@@ -148,13 +175,14 @@ An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy
 
 <figure style="text-align: center;">
   <img src="./images/mecanum_real_2d_vis.png" width="90%"/>
-  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input (set `annotate_image: true` in config)</figcaption>
+  <figcaption style="text-align: center;">One frame of aligned Depth+Image+Semantics Input (set `annotate_image: true` in config). The LiDAR scan points are projected to the image frame, with darker color representing farther points. Detection and segmentation results are drawn in masks and bounding boxes, with colors representing different instances.
+</figcaption>
 </figure>
 
 
 ## Credits
 
-Contributors: [Guofei Chen](https://gfchen01.github.io), [Changwei Yao](https://github.com/chadwick-yao), [Ji Zhang](https://frc.ri.cmu.edu/~zhangji/).
+Contributors: [Guofei Chen](https://gfchen01.github.io), [Changwei Yao](https://github.com/chadwick-yao), [Wenshan Wang](http://www.wangwenshan.com/), [Ji Zhang](https://frc.ri.cmu.edu/~zhangji/).
 
 [Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2), [byte_track](https://github.com/ifzhang/ByteTrack), and [cython_bbox](https://github.com/samson-wang/cython_bbox) are from open-source releases.
 
