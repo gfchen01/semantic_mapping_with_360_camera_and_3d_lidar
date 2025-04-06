@@ -176,7 +176,7 @@ then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the
 
 <figure style="text-align: center;">
   <img src="./images/2d_vis.png" width="90%"/>
-  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input (set `annotate_image: true` in config)</figcaption>
+  <figcaption style="text-align: center;">One frame of aligned Depth/Image/Semantics Input (set `annotate_image: true` in config). The LiDAR scan points are projected to the image frame, with darker color representing farther points. Detection and segmentation results are drawn in different colors.</figcaption>
 </figure>
 
 
