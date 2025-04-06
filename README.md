@@ -149,7 +149,6 @@ You can either run in simulation or real-world system (rosbag).
  
  Then start the semantic mapping module:
  ```bash
- # wheelchair platform
  python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_sim.yaml
  ```
  When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization:
