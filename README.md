@@ -80,7 +80,7 @@ pip install . # Install semantic_mapping package
 ```
 
 ## Run
-**First**, make sure the following topics are available:
+Our system subscribes to the following topics:
 
 | Topic Name        | Message Type            | Note                                      |
 | ----------------- | ----------------------- | ----------------------------------------- |
@@ -90,7 +90,7 @@ pip install . # Install semantic_mapping package
 
 If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
 
-**Second**, check the [configs](./config/). Here is an example config:
+**Before running**, check the [configs](./config/). Here is an example config:
 
 ```yaml
 platform: mecanum # name of the platform. Implies extrinsics.
@@ -132,12 +132,12 @@ prompts:
     is_instance: false
 ```
 
-**Then**, you can either run in simulation or real-world system (rosbag).
+You can either run in simulation or real-world system (rosbag).
 
 
 ### Run in real-world
 
-An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with `python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml`, then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
+An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with `python -m semantic_mapping.mapping_ros1_node --config config/mapping_mecanum_real.yaml`, then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
 
 
 <figure style="text-align: center;">
