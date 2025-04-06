@@ -14,7 +14,7 @@ Note: for ROS1, we show an example for the wheelchair platform, both in simulati
 ## Repository Setup
 
 This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
-[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
+[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git), [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity).
 
 
 ### Requirements
