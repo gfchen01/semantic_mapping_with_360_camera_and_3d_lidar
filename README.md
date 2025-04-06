@@ -9,6 +9,8 @@ This is a 3D open-vocabulary instance-level semantic mapping system. The system 
 
 Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta Z1 Camera.
 
+Note: for ROS1, we show an example for the wheelchair platform, both in simulation and in real-world.
+
 ## Repository Setup
 
 This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
@@ -18,13 +20,16 @@ This repository contains the code for semantic mapping with 360 (panoramic) came
 ### Requirements
 
 1. GPU with >16GB memory
-2. Miniforge install is required for setting up ROS. Follow the install instructions [here](https://github.com/conda-forge/miniforge).
+2. Miniforge install is required for setting up ROS. Follow [the install instructions here](https://github.com/conda-forge/miniforge).
 
 ### Setup the environment
 
-First create the environment:
+First clone the repository, switch to ros1 branch, and create the environment:
 
 ``` bash
+git clone https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar.git
+git checkout ros1
+
 conda create --name mapping_ros1 python=3.11
 conda activate mapping_ros2
 ```
@@ -88,9 +93,9 @@ Our system subscribes to the following topics:
 | /camera/image     | sensor_msgs/Image       | 360 Images                                |
 | /state_estimation | nav_msgs/Odometry       | Odometry of the LiDAR frame               |
 
-If you need to change the topic names you subscribe to, please check the topic subscriptions [here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
+If you need to change the topic names you subscribe to, please [check the topic subscriptions here](https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_lidar/blob/ros2/semantic_mapping/mapping_ros2_node.py#L129-L155).
 
-**Before running**, check the [configs](./config/). Here is an example config:
+**Before running**, [check the configs](./config/). Here is an example config:
 
 ```yaml
 platform: mecanum # name of the platform. Implies extrinsics.
@@ -138,28 +143,29 @@ You can either run in simulation or real-world system (rosbag).
  
  First, setup the simulated base system following the instructions here: [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge).
  
- After running `system_bring_up.sh`, you should see an Rviz like this:
+ After running `system_bring_up.sh`, you should see an Rviz and the unity simulation like this:
  
  <p float="center">
- <img src="./images/wheelchair_sim.png" height="600">
+ <img src="./images/wheelchair_sim.png">
  </p>
- 
- And an Unity simulation environment like this:
- 
- ![](./images/wheelchair_unity.png)
  
  Then start the semantic mapping system:
  ```bash
  # wheelchair platform
  python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
  ```
- When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization like this:
+ When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization:
  
  ![](./images/wheelchair_mapping_3d_sim.png)
 
 ### Run in real-world
 
-An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system can be downloaded [here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with `python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml`, then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
+An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy.com/cmu-vla-challenge) on real-world system [can be downloaded here](https://drive.google.com/file/d/1FRn78MsMIxIS4pyMwQLpWWVZMcEndmfk/view?usp=drivesdk). After downloading the bag, start the ros node with: 
+```bash
+python -m semantic_mapping.mapping_ros1_node --config config/mapping_wheelchair.yaml
+```
+
+then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.
 
 
 <figure style="text-align: center;">
@@ -176,7 +182,7 @@ An example bag recorded with [wheelchair_platform](https://www.ai-meets-autonomy
 
 ## Credits
 
-Contributors: [Guofei Chen](https://gfchen01.github.io), [Changwei Yao](https://github.com/chadwick-yao), [Ji Zhang](https://frc.ri.cmu.edu/~zhangji/).
+Contributors: [Guofei Chen](https://gfchen01.github.io), [Changwei Yao](https://github.com/chadwick-yao), [Wenshan Wang](http://www.wangwenshan.com/), [Ji Zhang](https://frc.ri.cmu.edu/~zhangji/).
 
 [Grounded-SAM-2](https://github.com/IDEA-Research/Grounded-SAM-2), [byte_track](https://github.com/ifzhang/ByteTrack), and [cython_bbox](https://github.com/samson-wang/cython_bbox) are from open-source releases.
 
