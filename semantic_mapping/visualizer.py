@@ -136,6 +136,8 @@ class VisualizerRerun(VisualizerBase):
 
                 if bboxes_oriented_3d is not None:
                     center, extent, q = bboxes_oriented_3d
+                    if extent is None:
+                        continue
                     half_extent = extent / 2
                     rr.log(
                         f"world/objects/bbox_oriented/{obj_label}/{obj_name}",

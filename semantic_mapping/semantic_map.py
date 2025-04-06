@@ -371,6 +371,9 @@ class ObjMapper():
                                 center_object, extent_object, q_object = single_obj.infer_bbox_oriented(diversity_percentile=self.percentile_thresh, regularized=True)
                                 center_target, extent_target, q_target = target_obj.infer_bbox_oriented(diversity_percentile=self.percentile_thresh, regularized=True)
                                 # avrg of half extent
+                                if extent_object is None or extent_target is None:
+                                    continue
+
                                 dist_thresh = np.linalg.norm((extent_object/2 + extent_target/2)/2) * 0.5
 
                                 # merge directly if the distance is small
