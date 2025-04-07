@@ -11,8 +11,8 @@ Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta
 
 ## Repository Setup
 
-This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
-[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform), [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity).
+This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups: [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity), and
+[mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform).
 
 For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. This branch is for ROS2 and should be set up on **Ubuntu 22.04 or Ubuntu 24.04**.
 
@@ -35,7 +35,7 @@ conda activate mapping_ros2
 
 To make ROS accessible in the environment, install ROS/ROS2 using robostack. 
 
-If you are using Ubuntu22.04, install ros-humble with mamba:
+If you are using Ubuntu 22.04, install ros-humble with mamba:
 
 ```bash
 # this adds the conda-forge channel to the new created environment configuration 
@@ -52,7 +52,7 @@ conda deactivate
 conda activate mapping_ros2
 ```
 
-If you are using Ubuntu24.04, install ros-jazzy with mamba:
+If you are using Ubuntu 24.04, install ros-jazzy with mamba:
 
 ```bash
 # this adds the conda-forge channel to the new created environment configuration 
@@ -117,7 +117,7 @@ If you need to change the topic names you subscribe to, please check [the topic 
 ```yaml
 platform: mecanum # name of the platform. Implies extrinsics.
 
-use_lidar_odom: true # If set true, the LiDAR odometry named /aft_mapped_to_init_incremental should be provided, which is a more accurate low frequency odometry from the LiDAR SLAM
+use_lidar_odom: true # If set true, the LiDAR odometry named /aft_mapped_to_init_incremental should be provided, which is a more accurate low-frequency odometry from the LiDAR SLAM
 
 detection_linear_state_time_bias: -0.05 # Compensation on the camera odometry estimate of linear states
 
