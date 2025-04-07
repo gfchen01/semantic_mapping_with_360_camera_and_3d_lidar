@@ -9,7 +9,7 @@ This is a 3D open-vocabulary instance-level semantic mapping module. The system 
 
 Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta Z1 Camera.
 
-For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. 
+For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. This branch is for ros1, which should be set up on **Ubuntu 20**.
 
 ## Repository Setup
 
@@ -31,7 +31,7 @@ git clone https://github.com/gfchen01/semantic_mapping_with_360_camera_and_3d_li
 git checkout ros1
 
 conda create --name mapping_ros1 python=3.11
-conda activate mapping_ros2
+conda activate mapping_ros1
 ```
 
 To make ROS accessible in the environment, install ROS/ROS2 using robostack:
@@ -49,7 +49,7 @@ conda config --env --remove channels defaults
 mamba install ros-noetic-desktop
 
 conda deactivate
-conda activate mapping_ros2
+conda activate mapping_ros1
 ```
 
 Install Grounded-SAM-2:
