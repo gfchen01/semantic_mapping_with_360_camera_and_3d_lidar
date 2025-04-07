@@ -9,14 +9,12 @@ This is a 3D open-vocabulary instance-level semantic mapping module. The system 
 
 Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta Z1 Camera.
 
-For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example.
-
 ## Repository Setup
 
 This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
 [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform), [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity).
 
-This branch is for ROS2 with the mecanum wheel platform. The system should be set up on **Ubuntu 22 or Ubuntu 24**.
+For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. This branch is for ROS2 and should be set up on **Ubuntu 22.04 or Ubuntu 24.04**.
 
 ### Requirements
 
