@@ -16,7 +16,7 @@ For the ros1 branch, we will use the wheelchair platform as an example in the in
 This repository contains the code for semantic mapping with 360 (panoramic) camera and 3D LiDAR. The system has been tested with the following robot/sensor setups:
 [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform), [wheelchair_platform](https://github.com/jizhang-cmu/cmu_vla_challenge_unity).
 
-This branch is for ROS2. The system should be set up on **Ubuntu 22 or Ubuntu 24**.
+This branch is for ROS2 with the mecanum wheel platform. The system should be set up on **Ubuntu 22 or Ubuntu 24**.
 
 ### Requirements
 
