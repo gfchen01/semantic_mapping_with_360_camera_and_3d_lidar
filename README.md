@@ -9,7 +9,7 @@ This is a 3D open-vocabulary instance-level semantic mapping module. The system 
 
 Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta Z1 Camera.
 
-For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. This branch is for ros2, which should be set up on Ubuntu 22 or Ubuntu 24.
+For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. This branch is for ros2, which should be set up on **Ubuntu 22 or Ubuntu 24**.
 
 ## Repository Setup
 
