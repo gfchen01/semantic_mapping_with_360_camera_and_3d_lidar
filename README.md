@@ -9,7 +9,7 @@ This is a 3D open-vocabulary instance-level semantic mapping module. The system 
 
 Left: Livox-Mid360 + Ricoh Theta Z1 Camera; Right: Velodyne VLP-16 + Ricoh Theta Z1 Camera.
 
-For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. 
+For the ros1 branch, we will use the wheelchair platform as an example in the instructions, and for the ros2 branch, we will use the mecanum wheel platform as an example. This branch is for ros2, which should be set up on Ubuntu 22 or Ubuntu 24.
 
 ## Repository Setup
 
@@ -33,18 +33,36 @@ conda create --name mapping_ros2 python=3.11
 conda activate mapping_ros2
 ```
 
-To make ROS accessible in the environment, install ROS/ROS2 using robostack:
-```bash
+To make ROS accessible in the environment, install ROS/ROS2 using robostack. 
 
+If you are using Ubuntu22.04, install ros-humble with mamba:
+
+```bash
+# this adds the conda-forge channel to the new created environment configuration 
+conda config --env --add channels conda-forge
+# and the robostack channel
+conda config --env --add channels robostack-humble
+# remove the defaults channel just in case, this might return an error if it is not in the list which is ok
+conda config --env --remove channels defaults
+
+# Install ros-humble into the environment (ROS2)
+mamba install ros-humble-desktop
+
+conda deactivate
+conda activate mapping_ros2
+```
+
+If you are using Ubuntu24.04, install ros-jazzy with mamba:
+
+```bash
 # this adds the conda-forge channel to the new created environment configuration 
 conda config --env --add channels conda-forge
 # and the robostack channel
 conda config --env --add channels robostack-jazzy
-
 # remove the defaults channel just in case, this might return an error if it is not in the list which is ok
 conda config --env --remove channels defaults
 
-# Install ros-noetic into the environment (ROS1)
+# Install ros-jazzy into the environment (ROS2)
 mamba install ros-jazzy-desktop
 
 conda deactivate
