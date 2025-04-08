@@ -1,0 +1,69 @@
+platform: wheelchair
+use_lidar_odom: false
+detection_linear_state_time_bias: -0.05
+detection_angular_state_time_bias: 0.0
+image_processing_interval: 0.5
+visualize: true
+vis_interval: 0.5
+annotate_image: true
+
+prompts:
+  chair:
+    prompts:
+      - chair
+    is_instance: true
+  sofa:
+    prompts:
+      - sofa
+    is_instance: true
+  table:
+    prompts:
+      - table
+    is_instance: true
+  wall:
+    prompts:
+      - wall
+      - white wall
+      - blue wall
+      - black wall
+    is_instance: false
+  cabinet:
+    prompts:
+      - white cabinet
+    is_instance: true
+  floor:
+    prompts:
+      - floor
+    is_instance: false
+  ceiling:
+    prompts:
+      - ceiling
+    is_instance: false
+  garbagebin:
+    prompts:
+      - garbage bin
+    is_instance: true
+  refrigerator:
+    prompts:
+      - silver refrigerator
+    is_instance: true
+  pottedplant:
+    prompts:
+      - small potted plant
+      - plant pot
+      - plant
+    is_instance: true
+  fireextinguisher:
+    prompts:
+      - fire extinguisher
+    is_instance: true
+  door:
+    prompts:
+      - door
+    is_instance: true
+  sign:
+    prompts:
+      - safety sign
+      - caution sign
+    is_instance: true
+    

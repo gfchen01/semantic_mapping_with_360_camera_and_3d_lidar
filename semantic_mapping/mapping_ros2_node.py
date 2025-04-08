@@ -365,7 +365,7 @@ class MappingNode(Node):
             right_linear_odom = self.odom_stack[linear_state_stamps.index(target_right_odom_stamp)]
             angular_odom = self.odom_stack[angular_state_stamps.index(target_angular_odom_stamp)]
 
-            linear_left_ratio = (detection_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
+            linear_left_ratio = (det_linear_state_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
 
             # interpolate for the camera odometry
             camera_odom = {}
