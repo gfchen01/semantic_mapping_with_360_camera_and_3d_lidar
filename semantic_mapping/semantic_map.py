@@ -16,7 +16,11 @@ from .tools import ros2_bag_utils as ros2_bag_utils
 from .utils import generate_colors, extract_meta_class, get_corners_from_box3d_torch, find_nearby_points
 from .visualizer import VisualizerRerun
 
-from captioner.captioning_backend import Captioner
+captioner_not_found = False
+try:
+    from captioner.captioning_backend import Captioner
+except ModuleNotFoundError:
+    captioner_not_found = True
 
 # from line_profiler import profile
 
@@ -104,7 +108,7 @@ class ObjMapper():
         tracker: BYTETracker,
         cloud_image_fusion: CloudImageFusion,
         label_template,
-        captioner: Captioner = None,
+        captioner = None,
         visualize=False,
         log_info=print
     ):
