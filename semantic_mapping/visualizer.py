@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation
 from sklearn.decomposition import PCA
 
 from .utils import generate_colors
+from .single_object import SingleObject
 
 class VisualizerBase():
     def __init__(self) -> None:
@@ -179,7 +180,7 @@ class VisualizerRerun(VisualizerBase):
                 #     )
                 # )
 
-    def visualize(self, object_list, odom, regularized=True, show_bbox=False):
+    def visualize(self, object_list: list[SingleObject], odom, regularized=True, show_bbox=False):
         camera_to_world = rr.Transform3D(translation=odom['position'], rotation=rr.Quaternion(xyzw=odom['orientation']))
         rr.log("world/odom", camera_to_world)
 
@@ -271,16 +272,17 @@ class VisualizerRerun(VisualizerBase):
 
                 if bboxes_oriented_3d is not None:
                     center, extent, q = bboxes_oriented_3d
-                    half_extent = extent / 2
-                    rr.log(
-                        f"world/objects/bbox_oriented/{obj_label}/{obj_name}",
-                        rr.Boxes3D(
-                            centers=center,
-                            half_sizes=half_extent,
-                            colors=colors_list[i],
-                            quaternions=rr.Quaternion(xyzw=q),
-                        ),
-                    )
+                    if center is not None and extent is not None and q is not None:
+                        half_extent = extent / 2
+                        rr.log(
+                            f"world/objects/bbox_oriented/{obj_label}/{obj_name}",
+                            rr.Boxes3D(
+                                centers=center,
+                                half_sizes=half_extent,
+                                colors=colors_list[i],
+                                quaternions=rr.Quaternion(xyzw=q),
+                            ),
+                        )
 
                 centroid = single_obj.infer_centroid(diversity_percentile=self.vis_percentile_thresh, regularized=regularized)
 

@@ -62,9 +62,7 @@ from pathlib import Path
 
 captioner_not_found = False
 try:
-    captioner_src_path = Path(__file__).resolve().parents[1] / "ai_module" / "src" / "captioner" / "src"
-    sys.path.append(str(captioner_src_path))
-    from captioning_backend import Captioner
+    from captioner.captioning_backend import Captioner
 except ModuleNotFoundError:
     captioner_not_found = True
     print(f"Captioner not found. Fall back to no captioning version.")
@@ -90,7 +88,8 @@ class MappingNode(Node):
         self.new_rgb = False
         self.last_camera_odom = None
         self.last_vis_stamp = 0.0
-
+        self.cur_pos = np.array([0., 0., 0.])
+        self.cur_orient = np.array([0., 0., 0., 0.])
 
         # parameters
         self.platform = config.get('platform', 'mecanum')
@@ -125,6 +124,55 @@ class MappingNode(Node):
         self.text_prompt = " . ".join(self.text_prompt) + " ."
         print(f"Text prompt: {self.text_prompt}")
 
+        self.queried_captions = None
+        self.freespace_pcl = None
+        self.cur_pos_for_freespace = None
+        self.pos_change_threshold = 0.05
+
+        self.do_visualize_with_rerun = False
+
+        if captioner_not_found:
+            self.captioner = None
+        else:
+            self.captioner = Captioner(
+                semantic_dict={},
+                log_info=self.log_info,
+                load_captioner=True,
+                crop_update_source="semantic_mapping"
+            )
+        
+        self.cloud_img_fusion = CloudImageFusion(platform=self.platform)
+
+        self.obj_mapper = ObjMapper(tracker=tracker, 
+                                    cloud_image_fusion=self.cloud_img_fusion, 
+                                    label_template=self.label_template, 
+                                    captioner=self.captioner, 
+                                    visualize=self.do_visualize_with_rerun,
+                                    log_info=self.log_info)
+
+        if self.ANNOTATE:
+            self.box_annotator = sv.BoxAnnotator(color=ColorPalette.DEFAULT)
+            self.label_annotator = sv.LabelAnnotator(
+                color=ColorPalette.DEFAULT,
+                text_padding=4,
+                text_scale=0.3,
+                text_position=sv.Position.TOP_LEFT,
+                color_lookup=sv.ColorLookup.INDEX,
+                smart_position=True,
+            )
+            self.mask_annotator = sv.MaskAnnotator(color=ColorPalette.DEFAULT)
+            self.ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'annotated_3d_in_loop')
+            if os.path.exists(self.ANNOTATE_OUT_DIR):
+                os.system(f"rm -r {self.ANNOTATE_OUT_DIR}")
+            os.makedirs(self.ANNOTATE_OUT_DIR, exist_ok=True)
+
+            self.VERBOSE_ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'verbose_3d_in_loop')
+            if os.path.exists(self.VERBOSE_ANNOTATE_OUT_DIR):
+                os.system(f"rm -r {self.VERBOSE_ANNOTATE_OUT_DIR}")
+            os.makedirs(self.VERBOSE_ANNOTATE_OUT_DIR, exist_ok=True)
+
+        self.bridge = CvBridge()
+
         # ROS2 subscriptions and publishers
         self.rgb_sub = self.create_subscription(
             Image,
@@ -154,6 +202,13 @@ class MappingNode(Node):
             10
         )
 
+        self.freespace_sub = self.create_subscription(
+            PointCloud2,
+            '/terrain_map_ext',
+            self.generate_freespace,
+            10
+        )
+
         self.query_sub = self.create_subscription(
             String, 
             '/object_query', 
@@ -168,54 +223,14 @@ class MappingNode(Node):
         self.caption_pub_timer = self.create_timer(0.1, self.publish_queried_captions)
         self.obj_cloud_pub = self.create_publisher(PointCloud2, '/obj_points', 10)
         self.obj_box_pub = self.create_publisher(MarkerArray, '/obj_boxes', 10)
+        self.obj_text_pub = self.create_publisher(MarkerArray, '/obj_labels', 10)
         self.annotated_image_pub = self.create_publisher(Image, '/annotated_image', 10)
+        self.freespace_pub = self.create_publisher(PointCloud2, '/traversable_area', 5)
 
+        self.log_info('Semantic mapping node has been started.')
 
-        self.queried_captions = None
-
-        self.do_visualize = True
-
-        if captioner_not_found:
-            self.captioner = None
-        else:
-            self.captioner = Captioner(
-                semantic_dict={},
-                log_info=self.get_logger().info,
-                load_captioner=True
-            )
-        
-        self.cloud_img_fusion = CloudImageFusion(platform=self.platform)
-
-        self.obj_mapper = ObjMapper(tracker=tracker, 
-                                    cloud_image_fusion=self.cloud_img_fusion, 
-                                    label_template=self.label_template, 
-                                    captioner=self.captioner, 
-                                    visualize=self.do_visualize)
-
-        if self.ANNOTATE:
-            self.box_annotator = sv.BoxAnnotator(color=ColorPalette.DEFAULT)
-            self.label_annotator = sv.LabelAnnotator(
-                color=ColorPalette.DEFAULT,
-                text_padding=4,
-                text_scale=0.3,
-                text_position=sv.Position.TOP_LEFT,
-                color_lookup=sv.ColorLookup.INDEX,
-                smart_position=True,
-            )
-            self.mask_annotator = sv.MaskAnnotator(color=ColorPalette.DEFAULT)
-            self.ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'annotated_3d_in_loop')
-            if os.path.exists(self.ANNOTATE_OUT_DIR):
-                os.system(f"rm -r {self.ANNOTATE_OUT_DIR}")
-            os.makedirs(self.ANNOTATE_OUT_DIR, exist_ok=True)
-
-            self.VERBOSE_ANNOTATE_OUT_DIR = os.path.join('output/debug_mapper', 'verbose_3d_in_loop')
-            if os.path.exists(self.VERBOSE_ANNOTATE_OUT_DIR):
-                os.system(f"rm -r {self.VERBOSE_ANNOTATE_OUT_DIR}")
-            os.makedirs(self.VERBOSE_ANNOTATE_OUT_DIR, exist_ok=True)
-
-
-        self.bridge = CvBridge()
-        self.get_logger().info('Semantic mapping node has been started.')
+    def log_info(self, msg):
+        self.get_logger().info(msg)
 
     def inference(self, cv_image):
         """
@@ -271,7 +286,7 @@ class MappingNode(Node):
                     self.rgb_stack.pop(0)
                 # Publish the processed image
                 self.new_detection = True
-                # self.get_logger().info('Processed an image.')
+                # self.log_info('Processed an image.')
             else:
                 return
         # except Exception as e:
@@ -301,15 +316,33 @@ class MappingNode(Node):
         odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
         odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
 
+        self.cur_pos[0] = msg.pose.pose.position.x
+        self.cur_pos[1] = msg.pose.pose.position.y
+        self.cur_pos[2] = msg.pose.pose.position.z
+
+        self.cur_orient[0] = msg.pose.pose.orientation.w
+        self.cur_orient[1] = msg.pose.pose.orientation.x
+        self.cur_orient[2] = msg.pose.pose.orientation.y
+        self.cur_orient[3] = msg.pose.pose.orientation.z
+        
         self.lidar_odom_stack.append(odom)
         self.lidar_odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
 
-    def odom_callback(self, msg):
+    def odom_callback(self, msg: Odometry):
         odom = {}
         odom['position'] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
         odom['orientation'] = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
         odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
         odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
+
+        self.cur_pos[0] = msg.pose.pose.position.x
+        self.cur_pos[1] = msg.pose.pose.position.y
+        self.cur_pos[2] = msg.pose.pose.position.z
+
+        self.cur_orient[0] = msg.pose.pose.orientation.w
+        self.cur_orient[1] = msg.pose.pose.orientation.x
+        self.cur_orient[2] = msg.pose.pose.orientation.y
+        self.cur_orient[3] = msg.pose.pose.orientation.z
 
         self.odom_stack.append(odom)
         self.odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
@@ -317,8 +350,8 @@ class MappingNode(Node):
     def handle_object_query(self, query_str: String):
         query_list = json.loads(query_str.data)
         self.queried_captions = None # To stop publishing the captions in the other thread (TODO: improve the way concurrency in handled in the entire system)
-        self.queried_captions = self.captioner.query_clip_features(query_list)
-        self.get_logger().info(f'{self.queried_captions}')
+        self.queried_captions = self.captioner.query_clip_features(query_list, self.cur_pos, self.cur_orient)
+        self.log_info(f'{self.queried_captions}')
 
     def mapping_callback(self):
         if self.new_detection:
@@ -499,72 +532,86 @@ class MappingNode(Node):
 
             # ================== Update the map ==================
 
-            self.obj_mapper.update_map(detections_tracked, detection_stamp, camera_odom, neighboring_cloud)
+            self.obj_mapper.update_map(detections_tracked, detection_stamp, camera_odom, neighboring_cloud, image)
 
-            # self.publish_map(detection_stamp)
+            self.publish_map(detection_stamp)
 
-            if self.do_visualize:
+            if self.do_visualize_with_rerun:
                 if detection_stamp - self.last_vis_stamp > self.vis_interval:
                     self.last_vis_stamp = detection_stamp
                     self.obj_mapper.rerun_vis(camera_odom, regularized=True, show_bbox=True, debug=False)
                     # self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
                     # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
-            if self.captioner is not None:
-                bboxes_2d = []
-                obj_ids_global = []
-                centroids_3d = []
-                class_names = []
-                for i, obj_id in enumerate(detections_tracked['ids']):
-                    if obj_id is None or obj_id < 0:
-                        continue
-                    else:
-                        obj_ids_global.append(obj_id)
-                        bboxes_2d.append(detections_tracked['bboxes'][i])
-                        centroids_3d.append(detections_tracked['centroids_3d'][i])
-                        class_names.append(detections_tracked['class_names'][i])
-
-                self.captioner.update_object_crops(
-                    torch.from_numpy(image).cuda().flip((-1)),
-                    bboxes_2d,
-                    obj_ids_global,
-                    centroids_3d,
-                    class_names,
-                )
 
 
     def publish_map(self, stamp):
         seconds = int(stamp)
         nanoseconds = int((stamp - seconds) * 1e9)
 
-        marker_array_msg = MarkerArray()
-        marker_array = []
+        bbox_marker_array_msg = MarkerArray()
+        text_marker_array_msg = MarkerArray()
+        bbox_marker_array_list = []
+        text_marker_array_list = []
 
         clear_marker = Marker()
         clear_marker.header.frame_id = 'map'
         clear_marker.header.stamp = Time(seconds=seconds, nanoseconds=nanoseconds-1e4).to_msg()
         clear_marker.action = Marker.DELETEALL
-        marker_array.append(clear_marker)
+        bbox_marker_array_list.append(clear_marker)
+        text_marker_array_list.append(clear_marker)
 
-        map_vis_msgs = self.obj_mapper.to_ros2_msgs(stamp)
+        bbox_msg_list, text_msg_list, ros_pcd = self.obj_mapper.to_ros2_msgs(stamp)
         
-        for msg in map_vis_msgs:
-            if isinstance(msg, PointCloud2):
-                self.obj_cloud_pub.publish(msg)
-            elif isinstance(msg, Marker):
-                marker_array.append(msg)
-            else:
-                self.get_logger().error('[In map vis]: Unknown message type.')
+        for msg in bbox_msg_list:
+            bbox_marker_array_list.append(msg)
+        for msg in text_msg_list:
+            text_marker_array_list.append(msg)
 
-        if len(marker_array) > 1:
-            marker_array_msg.markers = marker_array
-            self.obj_box_pub.publish(marker_array_msg)
+        if ros_pcd is not None:
+            self.obj_cloud_pub.publish(ros_pcd)
+        if len(bbox_marker_array_list) > 1:
+            bbox_marker_array_msg.markers = bbox_marker_array_list
+            self.obj_box_pub.publish(bbox_marker_array_msg)
+        if len(text_marker_array_list) > 1:
+            text_marker_array_msg.markers = text_marker_array_list
+            self.obj_text_pub.publish(text_marker_array_msg)
 
     def publish_queried_captions(self):
         if self.queried_captions is None:
             return
         queried_caption_str = json.dumps(self.queried_captions)
         self.caption_pub.publish(String(data=queried_caption_str))
+
+    def generate_freespace(self, msg: PointCloud2):
+        if self.cur_pos_for_freespace is None or np.linalg.norm(self.cur_pos[:2] - self.cur_pos_for_freespace[:2]) > self.pos_change_threshold:
+            pcd = point_cloud2.read_points_list(msg, field_names=("x", "y", "z", "intensity"), skip_nans=True)
+            points_numpy = np.array(pcd).astype(np.float32)
+            points_numpy = points_numpy[points_numpy[:, 3] < 0.05, :3]
+
+            if self.freespace_pcl is None:
+                self.freespace_pcl = points_numpy
+            else:
+                self.freespace_pcl = np.vstack([self.freespace_pcl, points_numpy])
+            
+            merged_pcd = o3d.geometry.PointCloud()
+            merged_pcd.points = o3d.utility.Vector3dVector(
+                self.freespace_pcl
+            )
+
+            voxel_size = 0.05
+            merged_pcd = merged_pcd.voxel_down_sample(voxel_size)
+
+            self.freespace_pcl = np.asarray(merged_pcd.points)
+
+            self.cur_pos_for_freespace = self.cur_pos.copy()
+
+            self.publish_freespace(self.freespace_pcl)
+    
+    def publish_freespace(self, freespace: np.ndarray):
+        seconds, nanoseconds = self.get_clock().now().seconds_nanoseconds()
+        msg = ros2_bag_utils.create_point_cloud(freespace[:, :3], seconds, nanoseconds, frame_id="map")
+        self.freespace_pub.publish(msg)
 
 if __name__ == "__main__":
     import argparse
