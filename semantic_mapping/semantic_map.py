@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
+import torch
 from rclpy.time import Time
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
@@ -14,6 +15,12 @@ from .single_object import SingleObject, AdjacencyGraph
 from .tools import ros2_bag_utils as ros2_bag_utils
 from .utils import generate_colors, extract_meta_class, get_corners_from_box3d_torch, find_nearby_points
 from .visualizer import VisualizerRerun
+
+captioner_not_found = False
+try:
+    from captioner.captioning_backend import Captioner
+except ModuleNotFoundError:
+    captioner_not_found = True
 
 # from line_profiler import profile
 
@@ -96,8 +103,16 @@ VERTICAL_OBJECTS = [
 
 
 class ObjMapper():
-    def __init__(self, tracker: BYTETracker, cloud_image_fusion: CloudImageFusion, label_template, captioner=None, visualize=False):
-        self.single_obj_list = []
+    def __init__(
+        self,
+        tracker: BYTETracker,
+        cloud_image_fusion: CloudImageFusion,
+        label_template,
+        captioner = None,
+        visualize=False,
+        log_info=print
+    ):
+        self.single_obj_list: list[SingleObject] = []
         self.background_obj_list = []
 
         self.adjacency_graph = AdjacencyGraph()
@@ -114,6 +129,8 @@ class ObjMapper():
             self.rerun_visualizer = VisualizerRerun()
         else:
             self.rerun_visualizer = None
+
+        self.log_info = log_info
 
         self.captioner = captioner
 
@@ -134,8 +151,8 @@ class ObjMapper():
                 INSTANCE_LEVEL_OBJECTS.append(label)
             self.label_template[label] = val['prompts']
         
-        print(f"Instance level objects: {INSTANCE_LEVEL_OBJECTS}")
-        print(f"label template: {self.label_template}")
+        self.log_info(f"Instance level objects: {INSTANCE_LEVEL_OBJECTS}")
+        self.log_info(f"label template: {self.label_template}")
 
     def track_objects(self, det_bboxes, det_labels, det_confidences, detection_odom):
         labels_mask = np.ones_like(det_labels).astype(bool)
@@ -159,7 +176,7 @@ class ObjMapper():
                 if det_labels[i] not in BACKGROUND_OBJECTS:
                     BACKGROUND_OBJECTS.append(det_labels[i])
             if det_labels[i] == 'None':
-                print(f'check: {label}')
+                # self.log_info(f'check: {label}')
                 unmatched = True
         
         det_labels = det_labels[labels_mask]
@@ -214,14 +231,14 @@ class ObjMapper():
             det_tracked['labels'] = np.array(labels)
             det_tracked['ids'] = np.array(obj_ids)
 
-            if None in obj_ids:
-                print(f'check: {obj_ids}; {det_tracked["ids"]}')
+            # if None in obj_ids:
+                # self.log_info(f'check: {obj_ids}; {det_tracked["ids"]}')
         
         return det_tracked, unmatched, det_labels_orig
 
     # @memory_profiler.profile
     # @profile
-    def update_map(self, detections, detection_stamp, detection_odom, cloud):
+    def update_map(self, detections, detection_stamp, detection_odom, cloud, image=None):
         R_b2w = Rotation.from_quat(detection_odom['orientation']).as_matrix()
         t_b2w = np.array(detection_odom['position'])
         R_w2b = R_b2w.T
@@ -315,7 +332,46 @@ class ObjMapper():
                     self.single_obj_list.append(SingleObject(class_id, obj_id, np.array(pcd_downsampled.points), \
                         self.voxel_size, R_b2w, t_b2w, masks[cloud_cnt], detection_stamp, num_angle_bin=self.num_angle_bin))
         
+        # ===================== update object crops in captioner =====================
+
+        obj_ids_updated = []
+        bboxes_2d = []
+        centroids_3d = []
+        bboxes_3d = []
+        class_names = []
+
+        if self.captioner is not None and image is not None:
+            for i, obj_id in enumerate(obj_ids):
+                if obj_id < 0:
+                    continue
+
+                for single_obj in self.single_obj_list:
+                    if obj_id in single_obj.obj_id:
+                        cent_3d = single_obj.infer_centroid(diversity_percentile=self.percentile_thresh, regularized=True)
+                        bbox_3d = single_obj.infer_bbox(diversity_percentile=self.percentile_thresh, regularized=True)
+                        # bbox_3d = single_obj.infer_bbox_oriented(diversity_percentile=self.percentile_thresh, regularized=True)
+
+                        if cent_3d is not None:
+                            obj_ids_updated.append(single_obj.obj_id[0])
+                            bboxes_2d.append(bboxes[i])
+                            centroids_3d.append(cent_3d)
+                            class_names.append(single_obj.get_dominant_label())
+                            bboxes_3d.append(bbox_3d)
+                        break
+            
+            
+
+            self.captioner.update_object_crops(
+                rgb=torch.from_numpy(image).cuda().flip((-1)),
+                bboxes_2d=bboxes_2d,
+                obj_ids_global=obj_ids_updated,
+                centroids_3d=centroids_3d,
+                class_names=class_names,
+                bboxes_3d=bboxes_3d,
+            )
+        
         # ===================== associate objects in world =====================
+
         i = 0
         while i < len(self.single_obj_list):
             single_obj = self.single_obj_list[i]
@@ -324,7 +380,7 @@ class ObjMapper():
 
                 if single_obj.inactive_frame > 20:
                     # self.single_obj_list.remove(single_obj)
-                    # print(f"Remove {single_obj.class_id}:{single_obj.obj_id}")
+                    # self.log_info(f"Remove {single_obj.class_id}:{single_obj.obj_id}")
                     i += 1
                     continue
 
@@ -378,9 +434,11 @@ class ObjMapper():
 
                                 # merge directly if the distance is small
                                 if minimum_dist < dist_thresh or minimum_dist < 0.5:
-                                    print(f"Merge {single_obj.class_id}:{single_obj.obj_id} to {target_obj.class_id}:{target_obj.obj_id} with dist thresh {dist_thresh}")
+                                    self.log_info(f"Merge {single_obj.class_id}:{single_obj.obj_id} to {target_obj.class_id}:{target_obj.obj_id} with dist thresh {dist_thresh}")
                                     if self.captioner is not None:
-                                        self.captioner.merge_objects(single_obj.obj_id[0], target_obj.obj_id[0])
+                                        centroid_target = target_obj.infer_centroid(diversity_percentile=self.percentile_thresh, regularized=True)
+                                        bbox_3d_target = target_obj.infer_bbox(diversity_percentile=self.percentile_thresh, regularized=True)
+                                        self.captioner.merge_objects(single_obj.obj_id[0], target_obj.obj_id[0], centroid_target, bbox_3d_target)
                                     merged_obj = True
                                 
                                 # # if not merged, check the IOU of the nearest bounding box
@@ -434,13 +492,13 @@ class ObjMapper():
                                 #             single_obj.add(voxels_exchange, obs_angle_exchange, votes_exchange)
 
                                 #             # DEBUG
-                                #             print(f"Voxels exchanged: {voxel_exchange_mask_indices.shape[0]} for {single_obj.get_dominant_label()}:{single_obj.obj_id} and {target_obj.get_dominant_label()}:{target_obj.obj_id}")
-                                #             print(f'Before: {obj_voxels.shape[0]}, {target_voxels.shape[0]}')
+                                #             self.log_info(f"Voxels exchanged: {voxel_exchange_mask_indices.shape[0]} for {single_obj.get_dominant_label()}:{single_obj.obj_id} and {target_obj.get_dominant_label()}:{target_obj.obj_id}")
+                                #             self.log_info(f'Before: {obj_voxels.shape[0]}, {target_voxels.shape[0]}')
 
                                 #             new_obj_voxels = single_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
                                 #             new_target_voxels = target_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, regularized=True)
                                             
-                                #             print(f'After: {new_obj_voxels.shape[0]}, {new_target_voxels.shape[0]}')
+                                #             self.log_info(f'After: {new_obj_voxels.shape[0]}, {new_target_voxels.shape[0]}')
 
                                 #             # if new_target_voxels.shape[0] < new_obj_voxels.shape[0]:
                                 #             #     # import open3d as o3d
@@ -472,9 +530,9 @@ class ObjMapper():
                                     #     os.makedirs(dir_name, exist_ok=True)
                                     #     np.save(f'{dir_name}/voxel_object.npy', voxel_object)
                                     #     np.save(f'{dir_name}/voxel_target.npy', voxel_target)
-                                    #     print(f"Separation test case saved to {dir_name}")
+                                    #     self.log_info(f"Separation test case saved to {dir_name}")
 
-                                    # print(f"IOU: {iou_3d}, inter_vol: {inter_vol}, inter/object: {ratio_object}, inter/target: {ratio_target}. {single_obj.get_dominant_label()}:{single_obj.obj_id} and {target_obj.get_dominant_label()}:{target_obj.obj_id}, dist: {minimum_dist}, thresh: {dist_thresh}")
+                                    # self.log_info(f"IOU: {iou_3d}, inter_vol: {inter_vol}, inter/object: {ratio_object}, inter/target: {ratio_target}. {single_obj.get_dominant_label()}:{single_obj.obj_id} and {target_obj.get_dominant_label()}:{target_obj.obj_id}, dist: {minimum_dist}, thresh: {dist_thresh}")
 
                                 if merged_obj:
                                     if target_index < i and not swapped:
@@ -491,39 +549,6 @@ class ObjMapper():
             else:
                 i += 1
         
-        # if self.valid_cnt % 10 == 0:
-        #     self.adjacency_graph.print_info()
-
-        # obj_ids_updated = []
-        # centroids_3d = []
-        # class_names = []
-
-        # for obj_id in obj_ids:
-        #     if obj_id < 0:
-        #         obj_ids_updated.append(obj_id)
-        #         centroids_3d.append(None)
-        #         class_names.append(None)
-        #     else:
-        #         found = False
-        #         for single_obj in self.single_obj_list:
-        #             if obj_id in single_obj.obj_id:
-        #                 cent_3d = single_obj.infer_centroid(diversity_percentile=self.percentile_thresh, regularized=True)
-        #                 if cent_3d is not None:
-        #                     obj_ids_updated.append(single_obj.obj_id[0])
-        #                     centroids_3d.append(cent_3d)
-        #                     class_names.append(single_obj.get_dominant_label())
-        #                     found = True
-        #                 break
-                    
-        #         if not found:
-        #             obj_ids_updated.append(None)
-        #             centroids_3d.append(None)
-        #             class_names.append(None)
-            
-        # detections['ids'] = obj_ids_updated
-        # detections['centroids_3d'] = centroids_3d
-        # detections['class_names'] = class_names
-        # assert len(detections['ids']) == len(detections['bboxes']) == len(detections['centroids_3d']), "obj_id update BUG"
 
         self.valid_cnt += 1
 
@@ -594,8 +619,8 @@ class ObjMapper():
             
             tree_cnt += 1
 
-        print(f'Number of objects: {len(self.single_obj_list)}')
-        print(f'Number of valid objects: {tree_cnt}')
+        self.log_info(f'Number of objects: {len(self.single_obj_list)}')
+        self.log_info(f'Number of valid objects: {tree_cnt}')
 
         if odom is not None:
             R_b2w = Rotation.from_quat(odom['orientation']).as_matrix()
@@ -635,11 +660,13 @@ class ObjMapper():
 
         points_list = []
         colors_list = []
-        ros_msg_list = []
-
+        bbox_msg_list = []
+        text_msg_list = []
         for single_obj in self.single_obj_list:
-            obj_points = single_obj.retrieve_valid_voxels(diversity_percentile=self.percentile_thresh, 
-                                                          regularized=True)
+            obj_points = single_obj.retrieve_valid_voxels(
+                diversity_percentile=self.percentile_thresh,
+                regularized=True
+            )
             if len(obj_points) == 0:
                 continue
 
@@ -654,26 +681,50 @@ class ObjMapper():
 
             aabb = pcd.get_axis_aligned_bounding_box()
 
-            obj_marker = ros2_bag_utils.create_wireframe_marker(aabb.get_center(),
-                                                                aabb.get_extent(),
-                                                                0.0,
-                                                                ns=f'{single_obj.class_id}',
-                                                                box_id=f'{single_obj.obj_id[0]}',
-                                                                color=colors_to_choose[tree_cnt],
-                                                                seconds=seconds,
-                                                                nanoseconds=nanoseconds,
-                                                                frame_id='map',)
-            
-            ros_msg_list.append(obj_marker)
+
+            obj_marker = ros2_bag_utils.create_wireframe_marker(
+                center=aabb.get_center(),
+                extent=aabb.get_extent(),
+                yaw=0.0,
+                ns=f'{single_obj.class_id}',
+                box_id=f'{single_obj.obj_id[0]}',
+                color=colors_to_choose[tree_cnt],
+                seconds=seconds,
+                nanoseconds=nanoseconds,
+                frame_id='map'
+            )
+
+
+            text_msg = ros2_bag_utils.create_text_marker(
+                center=aabb.get_center(),
+                marker_id=single_obj.obj_id[0],
+                text=single_obj.get_dominant_label(),
+                color=colors_to_choose[tree_cnt],
+                text_height=0.2,
+                seconds=seconds,
+                nanoseconds=nanoseconds,
+                frame_id='map'
+            )
+
+            bbox_msg_list.append(obj_marker)
+            text_msg_list.append(text_msg)
+
             tree_cnt += 1
 
         if len(points_list) != 0:
             points = np.concatenate(points_list, axis=0)
             colors = np.concatenate(colors_list, axis=0)
-            ros_pcd = ros2_bag_utils.create_colored_point_cloud(points, colors, seconds, nanoseconds, frame_id='map')
-            ros_msg_list.append(ros_pcd)
-        
-        return ros_msg_list
+            ros_pcd = ros2_bag_utils.create_colored_point_cloud(
+                points=points,
+                colors=colors,
+                seconds=seconds,
+                nanoseconds=nanoseconds,
+                frame_id='map'
+            )
+        else:
+            ros_pcd = None
+
+        return bbox_msg_list, text_msg_list, ros_pcd
 
     def rerun_vis(self, odom, regularized=True, show_bbox=False, debug=False, enforce=False):
         if self.do_visualize:
@@ -686,13 +737,13 @@ class ObjMapper():
                 self.rerun_visualizer = VisualizerRerun() if self.rerun_visualizer is None else self.rerun_visualizer
                 self.rerun_visualizer.visualize(self.single_obj_list, odom, regularized=regularized, show_bbox=show_bbox)
             else:
-                print("Visualizer is not enabled!!!")
+                self.log_info("Visualizer is not enabled!!!")
     
     def print_obj_info(self):
-        print('==== All Objects Info ====')
+        self.log_info('==== All Objects Info ====')
         for single_obj in self.single_obj_list:
             obj_str = single_obj.get_info_str()
-            print(obj_str)
+            self.log_info(obj_str)
 
 
 
