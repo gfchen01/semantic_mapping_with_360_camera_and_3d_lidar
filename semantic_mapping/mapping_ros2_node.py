@@ -16,6 +16,7 @@ import cv2
 import supervision as sv
 from supervision.draw.color import ColorPalette
 
+
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
 from bytetrack.byte_tracker import BYTETracker
@@ -46,6 +47,10 @@ from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import String
+
+import threading
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from scipy.spatial.transform import Slerp
 from scipy.spatial.transform import Rotation
@@ -91,6 +96,11 @@ class MappingNode(Node):
         self.last_camera_odom = None
         self.last_vis_stamp = 0.0
 
+        self.odom_cbk_lock = threading.Lock()
+        self.lidar_odom_cbk_lock = threading.Lock()
+        self.cloud_cbk_lock = threading.Lock()
+        self.rgb_cbk_lock = threading.Lock()
+        self.mapping_processing_lock = threading.Lock()
 
         # parameters
         self.platform = config.get('platform', 'mecanum')
@@ -130,13 +140,15 @@ class MappingNode(Node):
             Image,
             '/camera/image',
             self.image_callback,
-            10
+            10,
+            callback_group=MutuallyExclusiveCallbackGroup()
         )
         self.cloud_sub = self.create_subscription(
             PointCloud2,
             '/registered_scan',
             self.cloud_callback,
-            10
+            10,
+            callback_group=MutuallyExclusiveCallbackGroup()
         )
 
         if self.use_lidar_odom:
@@ -144,14 +156,16 @@ class MappingNode(Node):
                 Odometry,
                 '/aft_mapped_to_init_incremental',
                 self.lidar_odom_callback,
-                10
+                10,
+                callback_group=MutuallyExclusiveCallbackGroup()
             )
 
         self.odom_sub = self.create_subscription(
             Odometry,
             '/state_estimation',
             self.odom_callback,
-            10
+            100,
+            callback_group=MutuallyExclusiveCallbackGroup()
         )
 
         self.query_sub = self.create_subscription(
@@ -160,11 +174,12 @@ class MappingNode(Node):
             self.handle_object_query, 
             1, 
             # callback_group=MutuallyExclusiveCallbackGroup()
-            )
+        )
         
         self.caption_pub = self.create_publisher(String, '/queried_captions', 10) # TODO: Server instead of pub?
 
         self.mapping_timer = self.create_timer(0.1, self.mapping_callback)
+
         self.caption_pub_timer = self.create_timer(0.1, self.publish_queried_captions)
         self.obj_cloud_pub = self.create_publisher(PointCloud2, '/obj_points', 10)
         self.obj_box_pub = self.create_publisher(MarkerArray, '/obj_boxes', 10)
@@ -256,63 +271,67 @@ class MappingNode(Node):
         return det_result
 
     def image_callback(self, msg):
-        # try:
-            # Convert ROS Image message to OpenCV image
+        with self.rgb_cbk_lock:
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             det_stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
             if len(self.detection_stamps) == 0 or det_stamp - self.detection_stamps[-1] > self.image_processing_interval:
                 self.rgb_stack.append(cv_image)
-                det_result = self.inference(cv_image)
-                self.detections_stack.append(det_result)
+                # det_result = self.inference(cv_image)
+                # self.detections_stack.append(det_result)
                 self.detection_stamps.append(det_stamp)
-                while len(self.detections_stack) > 3:
+                while len(self.rgb_stack) > 10:
                     self.detection_stamps.pop(0)
-                    self.detections_stack.pop(0)
+                    # self.detections_stack.pop(0)
                     self.rgb_stack.pop(0)
-                # Publish the processed image
                 self.new_detection = True
-                # self.get_logger().info('Processed an image.')
             else:
                 return
-        # except Exception as e:
-        #     self.get_logger().error(f'Error processing image: {str(e)}')
+            
+            # print('processed image: ', det_stamp)
 
     def cloud_callback(self, msg):
-        points_numpy = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"))
-        self.cloud_stack.append(points_numpy)
-        stamp_seconds = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
-        self.cloud_stamps.append(stamp_seconds)
+        with self.cloud_cbk_lock:
+            points_numpy = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"))
+            self.cloud_stack.append(points_numpy)
+            stamp_seconds = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
+            self.cloud_stamps.append(stamp_seconds)
 
-        self.global_cloud = np.vstack([self.global_cloud, points_numpy])
-        merged_pcd = o3d.geometry.PointCloud()
-        merged_pcd.points = o3d.utility.Vector3dVector(
-            self.global_cloud
-        )
+            self.global_cloud = np.vstack([self.global_cloud, points_numpy])
+            merged_pcd = o3d.geometry.PointCloud()
+            merged_pcd.points = o3d.utility.Vector3dVector(
+                self.global_cloud
+            )
 
-        voxel_size = 0.05
-        merged_pcd = merged_pcd.voxel_down_sample(voxel_size)
+            voxel_size = 0.05
+            merged_pcd = merged_pcd.voxel_down_sample(voxel_size)
 
-        self.global_cloud = np.asarray(merged_pcd.points)
+            self.global_cloud = np.asarray(merged_pcd.points)
 
     def lidar_odom_callback(self, msg):
-        odom = {}
-        odom['position'] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
-        odom['orientation'] = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
-        odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
-        odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
+        with self.lidar_odom_cbk_lock:
+            odom = {}
+            odom['position'] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+            odom['orientation'] = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
+            odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
+            odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
 
-        self.lidar_odom_stack.append(odom)
-        self.lidar_odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
+            self.lidar_odom_stack.append(odom)
+            self.lidar_odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
+
+            # print(f"lidar odom stamp: {self.lidar_odom_stamps[-1]}")
 
     def odom_callback(self, msg):
-        odom = {}
-        odom['position'] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
-        odom['orientation'] = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
-        odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
-        odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
+        with self.odom_cbk_lock:
+            odom = {}
+            odom['position'] = [msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z]
+            odom['orientation'] = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
+            odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
+            odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
 
-        self.odom_stack.append(odom)
-        self.odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
+            self.odom_stack.append(odom)
+            self.odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
+
+            # print(f"odom stamp: {self.odom_stamps[-1]}")
 
     def handle_object_query(self, query_str: String):
         query_list = json.loads(query_str.data)
@@ -320,88 +339,12 @@ class MappingNode(Node):
         self.queried_captions = self.captioner.query_clip_features(query_list)
         self.get_logger().info(f'{self.queried_captions}')
 
-    def mapping_callback(self):
-        if self.new_detection:
-            self.new_detection = False
-            
-            detections = self.detections_stack[0]
-            detection_stamp = self.detection_stamps[0]
-            image = self.rgb_stack[0]
-
-            # ================== Time synchronization ==================
-            if len(self.odom_stamps) == 0:
-                return
-            det_linear_state_stamp = detection_stamp + self.detection_linear_state_time_bias
-            det_angular_state_stamp = detection_stamp + self.detection_angular_state_time_bias
-
-            linear_state_stamps = self.lidar_odom_stamps if self.use_lidar_odom else self.odom_stamps
-            angular_state_stamps = self.odom_stamps
-            linear_states = self.lidar_odom_stack if self.use_lidar_odom else self.odom_stack
-            angular_states = self.odom_stack
-            if len(linear_state_stamps) == 0 or len(angular_state_stamps) == 0:
-                print("Waiting for odometry...")
-                return
-
-            target_left_odom_stamp, target_right_odom_stamp = find_neighbouring_stamps(linear_state_stamps, det_linear_state_stamp)
-            if target_left_odom_stamp > det_linear_state_stamp: # wait for next detection
-                return
-            if target_right_odom_stamp < det_linear_state_stamp: # wait for odometry
-                return
-
-            target_angular_odom_stamp = find_closest_stamp(angular_state_stamps, det_angular_state_stamp)
-            if abs(target_angular_odom_stamp - det_angular_state_stamp) > 0.1:
-                return
-
-            # clean up the odom stacks
-            while linear_state_stamps[0] < target_left_odom_stamp:
-                linear_states.pop(0)
-                linear_state_stamps.pop(0)
-            if self.use_lidar_odom: # two stamp reference point to different containers
-                while angular_state_stamps[0] < target_angular_odom_stamp:
-                    angular_states.pop(0)
-                    angular_state_stamps.pop(0)
-
-            left_linear_odom = self.odom_stack[linear_state_stamps.index(target_left_odom_stamp)]
-            right_linear_odom = self.odom_stack[linear_state_stamps.index(target_right_odom_stamp)]
-            angular_odom = self.odom_stack[angular_state_stamps.index(target_angular_odom_stamp)]
-
-            linear_left_ratio = (det_linear_state_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
-
-            # interpolate for the camera odometry
-            camera_odom = {}
-            camera_odom['position'] = np.array(right_linear_odom['position']) * linear_left_ratio + np.array(left_linear_odom['position']) * (1 - linear_left_ratio)
-            camera_odom['linear_velocity'] = np.array(right_linear_odom['linear_velocity']) * linear_left_ratio + np.array(left_linear_odom['linear_velocity']) * (1 - linear_left_ratio)
-            # SLERP
-            rotations = Rotation.from_quat([left_linear_odom['orientation'], right_linear_odom['orientation']])
-            slerp = Slerp([0, 1], rotations)
-            camera_odom['orientation'] = slerp(linear_left_ratio).as_quat()
-            camera_odom['angular_velocity'] = angular_odom['angular_velocity']
-
-            # ================== Find the cloud collected around rgb timestamp ==================
-            if len(self.cloud_stamps) == 0:
-                return
-            while len(self.cloud_stamps) > 0 and self.cloud_stamps[0] < (detection_stamp - 1.0):
-                self.cloud_stack.pop(0)
-                self.cloud_stamps.pop(0)
-                if len(self.cloud_stack) == 0:
-                    return
-
-            neighboring_cloud = []
-            for i in range(len(self.cloud_stamps)):
-                if self.cloud_stamps[i] >= (detection_stamp - 0.5) and self.cloud_stamps[i] <= (detection_stamp + 0.1):
-                    neighboring_cloud.append(self.cloud_stack[i])
-            if len(neighboring_cloud) == 0:
-                return
-            else:
-                neighboring_cloud = np.concatenate(neighboring_cloud, axis=0)
-
-            # if self.last_camera_odom is not None:
-            #     if np.linalg.norm(self.last_camera_odom['position'] - camera_odom['position']) < 0.05:
-            #         return
-            
-            self.last_camera_odom = camera_odom
-
+    def mapping_processing(self, image, camera_odom, detections, detection_stamp, neighboring_cloud):
+        with self.mapping_processing_lock:
             # ================== Process detection and tracking ==================
+            if detections is None:
+                detections = self.inference(image)
+
             det_labels = detections['labels']
             det_bboxes = detections['bboxes']
             det_confidences = detections['confidences']
@@ -532,6 +475,100 @@ class MappingNode(Node):
                     class_names,
                 )
 
+    def mapping_callback(self):
+        if self.new_detection:
+            self.new_detection = False
+            
+            with self.rgb_cbk_lock:
+                # detections = self.detections_stack[0]
+                detections = None
+                detection_stamp = self.detection_stamps[0]
+                image = self.rgb_stack[0].copy()
+
+            # ================== Time synchronization ==================
+            with self.odom_cbk_lock:
+                with self.lidar_odom_cbk_lock:
+                    det_linear_state_stamp = detection_stamp + self.detection_linear_state_time_bias
+                    det_angular_state_stamp = detection_stamp + self.detection_angular_state_time_bias
+
+                    linear_state_stamps = self.lidar_odom_stamps if self.use_lidar_odom else self.odom_stamps
+                    angular_state_stamps = self.odom_stamps
+                    linear_states = self.lidar_odom_stack if self.use_lidar_odom else self.odom_stack
+                    angular_states = self.odom_stack
+                    if len(linear_state_stamps) == 0 or len(angular_state_stamps) == 0:
+                        print("No odometry found. Waiting for odometry...")
+                        return
+
+                    target_left_odom_stamp, target_right_odom_stamp = find_neighbouring_stamps(linear_state_stamps, det_linear_state_stamp)
+                    if target_left_odom_stamp > det_linear_state_stamp: # wait for next detection
+                        print("Detection older than oldest odom. Waiting for next detection...")
+                        return
+                    if target_right_odom_stamp < det_linear_state_stamp: # wait for odometry
+                        print(f"Odom older than detection. Right odom: {target_right_odom_stamp}, det linear: {det_linear_state_stamp}. Waiting for odometry...")
+                        return
+
+                    target_angular_odom_stamp = find_closest_stamp(angular_state_stamps, det_angular_state_stamp)
+                    if abs(target_angular_odom_stamp - det_angular_state_stamp) > 0.1:
+                        print(f"No close angular state found. Angular odom found: {target_angular_odom_stamp}, det angular: {det_angular_state_stamp}. Waiting for odometry...")
+                        return
+
+                    left_linear_odom = linear_states[linear_state_stamps.index(target_left_odom_stamp)]
+                    right_linear_odom = linear_states[linear_state_stamps.index(target_right_odom_stamp)]
+                    angular_odom = angular_states[angular_state_stamps.index(target_angular_odom_stamp)]
+
+                    linear_left_ratio = (det_linear_state_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
+
+                    assert linear_left_ratio <= 1.0 and linear_left_ratio >= 0.0
+                    print(f"linear_left_ratio: {linear_left_ratio}, target_left_odom_stamp: {target_left_odom_stamp}, target_right_odom_stamp: {target_right_odom_stamp}, det_linear_state_stamp: {det_linear_state_stamp}")
+                    # print(f'left odom stamp index: {linear_state_stamps.index(target_left_odom_stamp)}, right odom stamp index: {linear_state_stamps.index(target_right_odom_stamp)}, angular odom stamp index: {angular_state_stamps.index(target_angular_odom_stamp)}')
+
+                    # interpolate for the camera odometry
+                    camera_odom = {}
+                    camera_odom['position'] = np.array(right_linear_odom['position']) * linear_left_ratio + np.array(left_linear_odom['position']) * (1 - linear_left_ratio)
+                    camera_odom['linear_velocity'] = np.array(right_linear_odom['linear_velocity']) * linear_left_ratio + np.array(left_linear_odom['linear_velocity']) * (1 - linear_left_ratio)
+                    # SLERP
+                    rotations = Rotation.from_quat([left_linear_odom['orientation'], right_linear_odom['orientation']])
+                    slerp = Slerp([0, 1], rotations)
+                    camera_odom['orientation'] = slerp(linear_left_ratio).as_quat()
+                    camera_odom['angular_velocity'] = angular_odom['angular_velocity']
+
+                    # clean up the odom stacks
+                    while linear_state_stamps[0] < target_left_odom_stamp:
+                        linear_states.pop(0)
+                        linear_state_stamps.pop(0)
+                    if self.use_lidar_odom: # two stamp reference point to different containers
+                        while angular_state_stamps[0] < target_angular_odom_stamp:
+                            angular_states.pop(0)
+                            angular_state_stamps.pop(0)
+
+            # ================== Find the cloud collected around rgb timestamp ==================
+            with self.cloud_cbk_lock:
+                if len(self.cloud_stamps) == 0:
+                    return
+                while len(self.cloud_stamps) > 0 and self.cloud_stamps[0] < (detection_stamp - 1.0):
+                    self.cloud_stack.pop(0)
+                    self.cloud_stamps.pop(0)
+                    if len(self.cloud_stack) == 0:
+                        return
+
+                neighboring_cloud = []
+                for i in range(len(self.cloud_stamps)):
+                    if self.cloud_stamps[i] >= (detection_stamp - 1.0) and self.cloud_stamps[i] <= (detection_stamp + 0.1):
+                        neighboring_cloud.append(self.cloud_stack[i])
+                if len(neighboring_cloud) == 0:
+                    return
+                else:
+                    neighboring_cloud = np.concatenate(neighboring_cloud, axis=0)
+
+            # if self.last_camera_odom is not None:
+            #     if np.linalg.norm(self.last_camera_odom['position'] - camera_odom['position']) < 0.05:
+            #         return
+            
+            self.last_camera_odom = camera_odom
+
+            threading.Thread(target=self.mapping_processing, args=(image, camera_odom, detections, detection_stamp, neighboring_cloud)).start()
+
+            # self.mapping_processing(image, camera_odom, detections, detection_stamp, neighboring_cloud)
 
     def publish_map(self, stamp):
         seconds = int(stamp)
@@ -617,8 +654,13 @@ if __name__ == "__main__":
     
     rclpy.init(args=None)
     node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker)
+    
+    # executor = MultiThreadedExecutor(num_threads=6)
+    # executor.add_node(node)
+
     try:
         rclpy.spin(node)
+        # executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

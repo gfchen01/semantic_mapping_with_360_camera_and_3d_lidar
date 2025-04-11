@@ -5,7 +5,7 @@ detection_angular_state_time_bias: 0.0
 image_processing_interval: 0.5
 visualize: true
 vis_interval: 0.5
-annotate_image: false
+annotate_image: true
 
 prompts:
 prompts:

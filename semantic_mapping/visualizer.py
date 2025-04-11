@@ -223,7 +223,7 @@ class VisualizerRerun(VisualizerBase):
             obj_name = f'{single_obj.obj_id[0]}'
 
             points = obj_points
-            colors = np.array([colors_list[i]] * obj_points.shape[0])
+            colors = np.array([colors_list[i%len(colors_list)]] * obj_points.shape[0])
             
             # # Weights as colors
             # weights_for_color = np.clip(weights, 1, 10) - 1

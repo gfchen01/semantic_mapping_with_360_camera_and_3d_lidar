@@ -1,6 +1,6 @@
 platform: mecanum
 use_lidar_odom: true
-detection_linear_state_time_bias: 0.0
+detection_linear_state_time_bias: -0.2
 detection_angular_state_time_bias: 0.0
 image_processing_interval: 0.5
 visualize: true
