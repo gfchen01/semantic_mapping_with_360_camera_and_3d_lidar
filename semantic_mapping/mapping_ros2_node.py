@@ -218,12 +218,12 @@ class MappingNode(Node):
             callback_group=MutuallyExclusiveCallbackGroup()
         )
 
-        self.freespace_sub = self.create_subscription(
-            PointCloud2,
-            '/terrain_map_ext',
-            self.generate_freespace,
-            10
-        )
+        # self.freespace_sub = self.create_subscription(
+        #     PointCloud2,
+        #     '/terrain_map_ext',
+        #     self.generate_freespace,
+        #     10
+        # )
 
         self.query_sub = self.create_subscription(
             String, 
@@ -381,6 +381,7 @@ class MappingNode(Node):
 
             # ================== Infer Masks ==================
             # sam2
+            sam2_start = time.time()
             with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
                 self.mask_predictor.set_image(image)
 
@@ -399,6 +400,7 @@ class MappingNode(Node):
                 else: # no information need to add to map
                     # detections_tracked['masks'] = []
                     return
+            sam2_time = time.time() - sam2_start
 
             if self.ANNOTATE:
                 image_anno = image.copy()
@@ -470,18 +472,20 @@ class MappingNode(Node):
 
             # ================== Update the map ==================
 
+            map_update_start = time.time()
             self.obj_mapper.update_map(detections_tracked, detection_stamp, camera_odom, neighboring_cloud, image)
+            map_update_time = time.time() - map_update_start
 
             self.publish_map(detection_stamp)
 
             if self.do_visualize_with_rerun:
                 if detection_stamp - self.last_vis_stamp > self.vis_interval:
                     self.last_vis_stamp = detection_stamp
-                    self.obj_mapper.rerun_vis(camera_odom, regularized=True, show_bbox=True, debug=False)
-                    # self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
+                    self.obj_mapper.rerun_vis(camera_odom, regularized=True, show_bbox=True, debug=True)
+                    self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
                     # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
-            print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}")
+            print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}, map update time: {map_update_time}, sam2 time: {sam2_time}")
 
     def mapping_callback(self):
         if self.new_detection:
@@ -569,7 +573,7 @@ class MappingNode(Node):
 
                 neighboring_cloud = []
                 for i in range(len(self.cloud_stamps)):
-                    if self.cloud_stamps[i] >= (detection_stamp - 1.0) and self.cloud_stamps[i] <= (detection_stamp + 0.1):
+                    if self.cloud_stamps[i] >= (detection_stamp - 0.5) and self.cloud_stamps[i] <= (detection_stamp + 0.1):
                         neighboring_cloud.append(self.cloud_stack[i])
                 if len(neighboring_cloud) == 0:
                     return
@@ -585,7 +589,7 @@ class MappingNode(Node):
             if not self.mapping_processing_lock.locked():
                 threading.Thread(target=self.mapping_processing, args=(image, camera_odom, detections, detection_stamp, neighboring_cloud)).start()
 
-            print(f"Mapping processing callback ended. Time: {time.time() - start}")
+            # print(f"Mapping processing callback ended. Time: {time.time() - start}")
 
             # self.mapping_processing(image, camera_odom, detections, detection_stamp, neighboring_cloud)
 

@@ -4,13 +4,17 @@ from scipy.spatial.transform import Rotation
 from .utils import normalize_angles_to_pi, R_to_yaw, discretize_angles
 import open3d as o3d
 
+from line_profiler import profile
+
 DIMENSION_PRIORS = {
-'default': (5.0, 5.0, 5.0), 
-'table': (3.0, 2.0, 2.0), 
-'chair': (1.0, 1.0, 1.0),
-'sofa': (2.5, 2.5, 2.0),
+'default': (5.0, 5.0, 2.0),
+
+'table': (5.0, 3.0, 2.0), 
+'chair': (1.5, 1.5, 2.0),
+'sofa': (3.0, 3.0, 2.0),
 'pottedplant': (1.0, 1.0, 1.0),
 'fireextinguisher': (0.5, 0.5, 0.5),
+
 # 'door': (1.0, 0.2, 3.0),
 # 'case': (1.0, 1.0)
 }
@@ -319,8 +323,8 @@ class SingleObject:
         if self.info_frames_cnt < 3 and self.inactive_frame < 5:
             min_points = 5
         else:
-            min_points = 10
-        return self.vote_stat.voxel_size * 2.5, min_points
+            min_points = 20
+        return self.vote_stat.voxel_size * 2.0, min_points
     
     def cal_clusters(self):
         if self.req_clustering:
@@ -461,6 +465,7 @@ class SingleObject:
         self.compute_valid_indices(diversity_percentile)
         return self.vote_stat.voxels[self.valid_indices_by_clustering]
 
+    @profile
     def infer_centroid(self, diversity_percentile, regularized=True):
         self.compute_valid_indices(diversity_percentile)
 

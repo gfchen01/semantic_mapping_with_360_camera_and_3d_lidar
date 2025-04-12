@@ -22,7 +22,7 @@ try:
 except ModuleNotFoundError:
     captioner_not_found = True
 
-# from line_profiler import profile
+from line_profiler import profile
 
 import copy
 # from pytorch3d.ops import box3d_overlap
@@ -237,7 +237,7 @@ class ObjMapper():
         return det_tracked, unmatched, det_labels_orig
 
     # @memory_profiler.profile
-    # @profile
+    @profile
     def update_map(self, detections, detection_stamp, detection_odom, cloud, image=None):
         R_b2w = Rotation.from_quat(detection_odom['orientation']).as_matrix()
         t_b2w = np.array(detection_odom['position'])
@@ -309,12 +309,13 @@ class ObjMapper():
             # Match object cloud to existing object based on object id
             merged = False
             if obj_id < 0:
-                for background_obj in self.background_obj_list:
-                    if obj_id in background_obj.obj_id:
-                        background_obj.merge(np.array(pcd.points), R_b2w, t_b2w, class_id, detection_stamp)
-                        background_obj.inactive_frame = -1
-                        merged = True
-                        break
+                # for background_obj in self.background_obj_list:
+                #     if obj_id in background_obj.obj_id:
+                #         background_obj.merge(np.array(pcd.points), R_b2w, t_b2w, class_id, detection_stamp)
+                #         background_obj.inactive_frame = -1
+                #         merged = True
+                #         break
+                pass
             else:
                 for single_obj in self.single_obj_list:
                     if obj_id in single_obj.obj_id:

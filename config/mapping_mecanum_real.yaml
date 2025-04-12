@@ -14,6 +14,9 @@ prompts:
   chair:
     prompts:
       - chair
+    is_instance: true
+  sofa:
+    prompts:
       - sofa
     is_instance: true
   table:
@@ -51,14 +54,14 @@ prompts:
       - white cabinet
       - black cabinet under the table
     is_instance: true
-  floor:
-    prompts:
-      - floor
-    is_instance: false
-  ceiling:
-    prompts:
-      - ceiling
-    is_instance: false
+  # floor:
+  #   prompts:
+  #     - floor
+  #   is_instance: false
+  # ceiling:
+  #   prompts:
+  #     - ceiling
+  #   is_instance: false
   door:
     prompts:
       - door
