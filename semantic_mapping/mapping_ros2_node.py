@@ -64,6 +64,8 @@ from .cloud_image_fusion import CloudImageFusion
 import yaml
 import sys
 from pathlib import Path
+import time
+from line_profiler import profile
 
 captioner_not_found = False
 try:
@@ -73,7 +75,7 @@ except ModuleNotFoundError:
     print(f"Captioner not found. Fall back to no captioning version.")
 
 class MappingNode(Node):
-    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker):
+    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker, device='cuda'):
         super().__init__('semantic_mapping_node')
 
         # class global containers
@@ -138,7 +140,8 @@ class MappingNode(Node):
         self.cur_pos_for_freespace = None
         self.pos_change_threshold = 0.05
 
-        self.do_visualize_with_rerun = False
+        self.device = device
+        self.do_visualize_with_rerun = config['visualize']
 
         if captioner_not_found:
             self.captioner = None
@@ -211,7 +214,7 @@ class MappingNode(Node):
             Odometry,
             '/state_estimation',
             self.odom_callback,
-            100,
+            50,
             callback_group=MutuallyExclusiveCallbackGroup()
         )
 
@@ -232,7 +235,7 @@ class MappingNode(Node):
         
         self.caption_pub = self.create_publisher(String, '/queried_captions', 10) # TODO: Server instead of pub?
 
-        self.mapping_timer = self.create_timer(0.1, self.mapping_callback)
+        self.mapping_timer = self.create_timer(0.5, self.mapping_callback)
 
         self.caption_pub_timer = self.create_timer(0.1, self.publish_queried_captions)
         self.obj_cloud_pub = self.create_publisher(PointCloud2, '/obj_points', 10)
@@ -259,7 +262,7 @@ class MappingNode(Node):
             images=image,
             text=self.text_prompt,
             return_tensors="pt",
-        ).to(device)
+        ).to(self.device)
 
         with torch.no_grad():
             outputs = self.grounding_model(**inputs)
@@ -286,22 +289,29 @@ class MappingNode(Node):
 
     def image_callback(self, msg):
         with self.rgb_cbk_lock:
+            start_time = time.time()
+
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             det_stamp = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
-            if len(self.detection_stamps) == 0 or det_stamp - self.detection_stamps[-1] > self.image_processing_interval:
-                self.rgb_stack.append(cv_image)
-                # det_result = self.inference(cv_image)
-                # self.detections_stack.append(det_result)
-                self.detection_stamps.append(det_stamp)
-                while len(self.rgb_stack) > 10:
-                    self.detection_stamps.pop(0)
-                    # self.detections_stack.pop(0)
-                    self.rgb_stack.pop(0)
-                self.new_detection = True
+
+            # if len(self.detection_stamps) == 0 or det_stamp - self.detection_stamps[-1] > self.image_processing_interval:
+
+            self.rgb_stack.append(cv_image)
+            # det_result = self.inference(cv_image)
+            # self.detections_stack.append(det_result)
+            self.detection_stamps.append(det_stamp)
+            while len(self.rgb_stack) > 10:
+                self.detection_stamps.pop(0)
+                # self.detections_stack.pop(0)
+                self.rgb_stack.pop(0)
+            self.new_detection = True
                 # self.log_info('Processed an image.')
-            else:
-                return
             
+            # else:
+            #     return
+            
+            # print(f"Image processing time: {time.time() - start_time}")
+
             # print('processed image: ', det_stamp)
 
     def cloud_callback(self, msg):
@@ -345,7 +355,6 @@ class MappingNode(Node):
 
             self.odom_stack.append(odom)
             self.odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
-
             # print(f"odom stamp: {self.odom_stamps[-1]}")
 
     def handle_object_query(self, query_str: String):
@@ -354,11 +363,15 @@ class MappingNode(Node):
         self.queried_captions = self.captioner.query_clip_features(query_list, self.cur_pos, self.cur_orient)
         self.log_info(f'{self.queried_captions}')
 
+    @profile
     def mapping_processing(self, image, camera_odom, detections, detection_stamp, neighboring_cloud):
         with self.mapping_processing_lock:
+            start_time = time.time()
+
             # ================== Process detection and tracking ==================
             if detections is None:
                 detections = self.inference(image)
+                inference_time = time.time() - start_time
 
             det_labels = detections['labels']
             det_bboxes = detections['bboxes']
@@ -369,10 +382,10 @@ class MappingNode(Node):
             # ================== Infer Masks ==================
             # sam2
             with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-                mask_predictor.set_image(image)
+                self.mask_predictor.set_image(image)
 
                 if len(detections_tracked['bboxes']) > 0:
-                    masks, _, _ = mask_predictor.predict(
+                    masks, _, _ = self.mask_predictor.predict(
                         point_coords=None,
                         point_labels=None,
                         box=np.array(detections_tracked['bboxes']),
@@ -468,16 +481,23 @@ class MappingNode(Node):
                     # self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
                     # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
+            print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}")
 
     def mapping_callback(self):
         if self.new_detection:
+            start = time.time()
+
             self.new_detection = False
             
             with self.rgb_cbk_lock:
+                if len(self.detection_stamps) < 2:
+                    print("No detection found. Waiting for detection...")
+                    return
+                
                 # detections = self.detections_stack[0]
                 detections = None
-                detection_stamp = self.detection_stamps[0]
-                image = self.rgb_stack[0].copy()
+                detection_stamp = self.detection_stamps[-2]
+                image = self.rgb_stack[-2].copy()
 
             # ================== Time synchronization ==================
             with self.odom_cbk_lock:
@@ -501,19 +521,19 @@ class MappingNode(Node):
                         print(f"Odom older than detection. Right odom: {target_right_odom_stamp}, det linear: {det_linear_state_stamp}. Waiting for odometry...")
                         return
 
-                    target_angular_odom_stamp = find_closest_stamp(angular_state_stamps, det_angular_state_stamp)
-                    if abs(target_angular_odom_stamp - det_angular_state_stamp) > 0.1:
-                        print(f"No close angular state found. Angular odom found: {target_angular_odom_stamp}, det angular: {det_angular_state_stamp}. Waiting for odometry...")
-                        return
+                    # target_angular_odom_stamp = find_closest_stamp(angular_state_stamps, det_angular_state_stamp)
+                    # if abs(target_angular_odom_stamp - det_angular_state_stamp) > 0.1:
+                    #     print(f"No close angular state found. Angular odom found: {target_angular_odom_stamp}, det angular: {det_angular_state_stamp}. Waiting for odometry...")
+                    #     return
+                    # angular_odom = angular_states[angular_state_stamps.index(target_angular_odom_stamp)]
 
                     left_linear_odom = linear_states[linear_state_stamps.index(target_left_odom_stamp)]
                     right_linear_odom = linear_states[linear_state_stamps.index(target_right_odom_stamp)]
-                    angular_odom = angular_states[angular_state_stamps.index(target_angular_odom_stamp)]
 
                     linear_left_ratio = (det_linear_state_stamp - target_left_odom_stamp) / (target_right_odom_stamp - target_left_odom_stamp) if target_right_odom_stamp != target_left_odom_stamp else 0.5
 
                     assert linear_left_ratio <= 1.0 and linear_left_ratio >= 0.0
-                    print(f"linear_left_ratio: {linear_left_ratio}, target_left_odom_stamp: {target_left_odom_stamp}, target_right_odom_stamp: {target_right_odom_stamp}, det_linear_state_stamp: {det_linear_state_stamp}")
+                    # print(f"linear_left_ratio: {linear_left_ratio}, target_left_odom_stamp: {target_left_odom_stamp}, target_right_odom_stamp: {target_right_odom_stamp}, det_linear_state_stamp: {det_linear_state_stamp}")
                     # print(f'left odom stamp index: {linear_state_stamps.index(target_left_odom_stamp)}, right odom stamp index: {linear_state_stamps.index(target_right_odom_stamp)}, angular odom stamp index: {angular_state_stamps.index(target_angular_odom_stamp)}')
 
                     # interpolate for the camera odometry
@@ -524,16 +544,18 @@ class MappingNode(Node):
                     rotations = Rotation.from_quat([left_linear_odom['orientation'], right_linear_odom['orientation']])
                     slerp = Slerp([0, 1], rotations)
                     camera_odom['orientation'] = slerp(linear_left_ratio).as_quat()
-                    camera_odom['angular_velocity'] = angular_odom['angular_velocity']
+                    # camera_odom['angular_velocity'] = angular_odom['angular_velocity']
+                    camera_odom['angular_velocity'] = np.array(right_linear_odom['angular_velocity']) * linear_left_ratio + np.array(left_linear_odom['angular_velocity']) * (1 - linear_left_ratio)
 
                     # clean up the odom stacks
                     while linear_state_stamps[0] < target_left_odom_stamp:
                         linear_states.pop(0)
                         linear_state_stamps.pop(0)
-                    if self.use_lidar_odom: # two stamp reference point to different containers
-                        while angular_state_stamps[0] < target_angular_odom_stamp:
-                            angular_states.pop(0)
-                            angular_state_stamps.pop(0)
+
+                    # if self.use_lidar_odom: # two stamp reference point to different containers
+                    #     while angular_state_stamps[0] < target_angular_odom_stamp:
+                    #         angular_states.pop(0)
+                    #         angular_state_stamps.pop(0)
 
             # ================== Find the cloud collected around rgb timestamp ==================
             with self.cloud_cbk_lock:
@@ -560,7 +582,10 @@ class MappingNode(Node):
             
             self.last_camera_odom = camera_odom
 
-            threading.Thread(target=self.mapping_processing, args=(image, camera_odom, detections, detection_stamp, neighboring_cloud)).start()
+            if not self.mapping_processing_lock.locked():
+                threading.Thread(target=self.mapping_processing, args=(image, camera_odom, detections, detection_stamp, neighboring_cloud)).start()
+
+            print(f"Mapping processing callback ended. Time: {time.time() - start}")
 
             # self.mapping_processing(image, camera_odom, detections, detection_stamp, neighboring_cloud)
 
@@ -682,7 +707,7 @@ if __name__ == "__main__":
     tracker = BYTETracker(byte_tracker_args)
     
     rclpy.init(args=None)
-    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker)
+    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker, device=device)
     
     # executor = MultiThreadedExecutor(num_threads=6)
     # executor.add_node(node)
