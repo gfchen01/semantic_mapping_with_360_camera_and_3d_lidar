@@ -218,6 +218,14 @@ class MappingNode(Node):
             callback_group=MutuallyExclusiveCallbackGroup()
         )
 
+        self.global_cloud_sub = self.create_subscription(
+            PointCloud2,
+            '/explored_areas',
+            self.global_cloud_callback,
+            10,
+            callback_group=MutuallyExclusiveCallbackGroup()
+        )
+
         # self.freespace_sub = self.create_subscription(
         #     PointCloud2,
         #     '/terrain_map_ext',
@@ -321,16 +329,9 @@ class MappingNode(Node):
             stamp_seconds = msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9
             self.cloud_stamps.append(stamp_seconds)
 
-            self.global_cloud = np.vstack([self.global_cloud, points_numpy])
-            merged_pcd = o3d.geometry.PointCloud()
-            merged_pcd.points = o3d.utility.Vector3dVector(
-                self.global_cloud
-            )
-
-            voxel_size = 0.05
-            merged_pcd = merged_pcd.voxel_down_sample(voxel_size)
-
-            self.global_cloud = np.asarray(merged_pcd.points)
+    def global_cloud_callback(self, msg):
+        points_numpy = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"))
+        self.global_cloud = points_numpy
 
     def lidar_odom_callback(self, msg):
         with self.lidar_odom_cbk_lock:
@@ -343,8 +344,6 @@ class MappingNode(Node):
             self.lidar_odom_stack.append(odom)
             self.lidar_odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
 
-            # print(f"lidar odom stamp: {self.lidar_odom_stamps[-1]}")
-
     def odom_callback(self, msg):
         with self.odom_cbk_lock:
             odom = {}
@@ -355,7 +354,6 @@ class MappingNode(Node):
 
             self.odom_stack.append(odom)
             self.odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
-            # print(f"odom stamp: {self.odom_stamps[-1]}")
 
     def handle_object_query(self, query_str: String):
         query_list = json.loads(query_str.data)
