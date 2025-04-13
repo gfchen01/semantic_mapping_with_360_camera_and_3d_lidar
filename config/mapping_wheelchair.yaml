@@ -2,7 +2,7 @@ platform: wheelchair
 use_lidar_odom: false
 detection_linear_state_time_bias: -0.05
 detection_angular_state_time_bias: 0.0
-image_processing_interval: 0.5
+image_processing_interval: 0.1
 visualize: true
 vis_interval: 0.5
 annotate_image: true
