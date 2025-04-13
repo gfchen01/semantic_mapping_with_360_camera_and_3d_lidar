@@ -213,6 +213,13 @@ class MappingNode:
             queue_size=100,
         )
 
+        self.overall_map_sub = rospy.Subscriber(
+            '/overall_map',
+            PointCloud2,
+            self.overall_map_callback,
+            queue_size=20,
+        )
+
         self.query_sub = rospy.Subscriber(
             '/object_query',
             String,
@@ -299,16 +306,9 @@ class MappingNode:
         stamp_seconds = msg.header.stamp.secs + msg.header.stamp.nsecs / 1e9
         self.cloud_stamps.append(stamp_seconds)
 
-        self.global_cloud = np.vstack([self.global_cloud, points_numpy])
-        merged_pcd = o3d.geometry.PointCloud()
-        merged_pcd.points = o3d.utility.Vector3dVector(
-            self.global_cloud
-        )
-
-        voxel_size = 0.05
-        merged_pcd = merged_pcd.voxel_down_sample(voxel_size)
-
-        self.global_cloud = np.asarray(merged_pcd.points)
+    def overall_map_callback(self, msg):
+        pcd = pc2.read_points_list(msg, field_names=("x", "y", "z"), skip_nans=True)
+        self.global_cloud = np.array(pcd)
 
     def lidar_odom_callback(self, msg):
         odom = {}
@@ -460,113 +460,113 @@ class MappingNode:
                     return
             mask_time = time.time() - mask_start
 
-            # if self.ANNOTATE:
-            #     image_anno = image.copy()
-            #     image_verbose = image_anno.copy()
+            if self.ANNOTATE:
+                image_anno = image.copy()
+                image_verbose = image_anno.copy()
 
-            #     bboxes = detections_tracked['bboxes']
-            #     masks = detections_tracked['masks']
-            #     labels = detections_tracked['labels']
-            #     obj_ids = detections_tracked['ids']
-            #     confidences = detections_tracked['confidences']
+                bboxes = detections_tracked['bboxes']
+                masks = detections_tracked['masks']
+                labels = detections_tracked['labels']
+                obj_ids = detections_tracked['ids']
+                confidences = detections_tracked['confidences']
 
-            #     if len(bboxes) > 0:
-            #         image_anno = cv2.cvtColor(image_anno, cv2.COLOR_BGR2RGB)
-            #         class_ids = np.array(list(range(len(labels))))
-            #         annotation_labels = [
-            #             f"{class_name} {id} {confidence:.2f}"
-            #             for class_name, id, confidence in zip(
-            #                 labels, obj_ids, confidences
-            #             )
-            #         ]
-            #         detections = sv.Detections(
-            #             xyxy=np.array(bboxes),
-            #             mask=np.array(masks).astype(bool),
-            #             class_id=class_ids,
-            #         )
-            #         image_anno = self.box_annotator.annotate(scene=image_anno, detections=detections)
-            #         image_anno = self.label_annotator.annotate(scene=image_anno, detections=detections, labels=annotation_labels)
-            #         image_anno = self.mask_annotator.annotate(scene=image_anno, detections=detections)
-            #         image_anno = cv2.cvtColor(image_anno, cv2.COLOR_RGB2BGR)
+                if len(bboxes) > 0:
+                    image_anno = cv2.cvtColor(image_anno, cv2.COLOR_BGR2RGB)
+                    class_ids = np.array(list(range(len(labels))))
+                    annotation_labels = [
+                        f"{class_name} {id} {confidence:.2f}"
+                        for class_name, id, confidence in zip(
+                            labels, obj_ids, confidences
+                        )
+                    ]
+                    detections = sv.Detections(
+                        xyxy=np.array(bboxes),
+                        mask=np.array(masks).astype(bool),
+                        class_id=class_ids,
+                    )
+                    image_anno = self.box_annotator.annotate(scene=image_anno, detections=detections)
+                    image_anno = self.label_annotator.annotate(scene=image_anno, detections=detections, labels=annotation_labels)
+                    image_anno = self.mask_annotator.annotate(scene=image_anno, detections=detections)
+                    image_anno = cv2.cvtColor(image_anno, cv2.COLOR_RGB2BGR)
 
-            #     if len(det_bboxes) > 0:
-            #         image_verbose = cv2.cvtColor(image_verbose, cv2.COLOR_BGR2RGB)
-            #         class_ids = np.array(list(range(len(det_labels))))
-            #         annotation_labels = [
-            #             f"{class_name} {confidence:.2f}"
-            #             for class_name, confidence in zip(
-            #                 det_labels, det_confidences
-            #             )
-            #         ]
-            #         detections = sv.Detections(
-            #             xyxy=np.array(det_bboxes),
-            #             class_id=class_ids,
-            #         )
-            #         image_verbose = self.box_annotator.annotate(scene=image_verbose, detections=detections)
-            #         image_verbose = self.label_annotator.annotate(scene=image_verbose, detections=detections, labels=annotation_labels)
-            #         image_verbose = cv2.cvtColor(image_verbose, cv2.COLOR_RGB2BGR)
-            #         image_verbose = np.vstack((image_verbose, image_anno))
+                if len(det_bboxes) > 0:
+                    image_verbose = cv2.cvtColor(image_verbose, cv2.COLOR_BGR2RGB)
+                    class_ids = np.array(list(range(len(det_labels))))
+                    annotation_labels = [
+                        f"{class_name} {confidence:.2f}"
+                        for class_name, confidence in zip(
+                            det_labels, det_confidences
+                        )
+                    ]
+                    detections = sv.Detections(
+                        xyxy=np.array(det_bboxes),
+                        class_id=class_ids,
+                    )
+                    image_verbose = self.box_annotator.annotate(scene=image_verbose, detections=detections)
+                    image_verbose = self.label_annotator.annotate(scene=image_verbose, detections=detections, labels=annotation_labels)
+                    image_verbose = cv2.cvtColor(image_verbose, cv2.COLOR_RGB2BGR)
+                    image_verbose = np.vstack((image_verbose, image_anno))
 
-            #     # draw pcd
-            #     R_b2w = Rotation.from_quat(camera_odom['orientation']).as_matrix()
-            #     t_b2w = np.array(camera_odom['position'])
-            #     R_w2b = R_b2w.T
-            #     t_w2b = -R_w2b @ t_b2w
-            #     cloud_body = neighboring_cloud @ R_w2b.T + t_w2b
+                # draw pcd
+                R_b2w = Rotation.from_quat(camera_odom['orientation']).as_matrix()
+                t_b2w = np.array(camera_odom['position'])
+                R_w2b = R_b2w.T
+                t_w2b = -R_w2b @ t_b2w
+                cloud_body = neighboring_cloud @ R_w2b.T + t_w2b
                 
-            #     self.cloud_img_fusion.generate_seg_cloud(cloud_body, masks, labels, confidences, R_b2w, t_b2w, image_src=image_anno)
+                self.cloud_img_fusion.generate_seg_cloud(cloud_body, masks, labels, confidences, R_b2w, t_b2w, image_src=image_anno)
 
-            #     cv2.imwrite(os.path.join(self.ANNOTATE_OUT_DIR, f"{detection_stamp}.png"), image_anno)
-            #     cv2.imwrite(os.path.join(self.VERBOSE_ANNOTATE_OUT_DIR, f"{detection_stamp}.png"), image_verbose)
+                cv2.imwrite(os.path.join(self.ANNOTATE_OUT_DIR, f"{detection_stamp}.png"), image_anno)
+                cv2.imwrite(os.path.join(self.VERBOSE_ANNOTATE_OUT_DIR, f"{detection_stamp}.png"), image_verbose)
 
-            #     # ros_image = self.bridge.cv2_to_imgmsg(image, encoding='bgr8')
-            #     # seconds = int(detection_stamp)
-            #     # nanoseconds = int((detection_stamp - seconds) * 1e9)
-            #     # ros_image.header.stamp = Time(seconds=seconds, nanoseconds=nanoseconds).to_msg()
-            #     # self.annotated_image_pub.publish(ros_image)
+                # ros_image = self.bridge.cv2_to_imgmsg(image, encoding='bgr8')
+                # seconds = int(detection_stamp)
+                # nanoseconds = int((detection_stamp - seconds) * 1e9)
+                # ros_image.header.stamp = Time(seconds=seconds, nanoseconds=nanoseconds).to_msg()
+                # self.annotated_image_pub.publish(ros_image)
 
-            #     # cv2.imshow("image", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-            #     # cv2.waitKey(1)
-            # # ================== Update the map ==================
+                # cv2.imshow("image", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+                # cv2.waitKey(1)
+            # ================== Update the map ==================
 
-            # mapping_start = time.time()
-            # self.obj_mapper.update_map(detections_tracked, detection_stamp, camera_odom, neighboring_cloud)
-            # mapping_time = time.time() - mapping_start
+            mapping_start = time.time()
+            self.obj_mapper.update_map(detections_tracked, detection_stamp, camera_odom, neighboring_cloud)
+            mapping_time = time.time() - mapping_start
 
-            # # ================== Publish the map to ros ==============
-            # self.publish_map(detection_stamp, global_cloud=self.global_cloud)
+            # ================== Publish the map to ros ==============
+            self.publish_map(detection_stamp, global_cloud=self.global_cloud)
 
-            # if self.do_visualize:
-            #     if detection_stamp - self.last_vis_stamp > self.vis_interval:
-            #         self.last_vis_stamp = detection_stamp
-            #         self.obj_mapper.rerun_vis(camera_odom, regularized=True, show_bbox=True, debug=False)
-            #         # self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
-            #         # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
+            if self.do_visualize:
+                if detection_stamp - self.last_vis_stamp > self.vis_interval:
+                    self.last_vis_stamp = detection_stamp
+                    self.obj_mapper.rerun_vis(camera_odom, regularized=True, show_bbox=True, debug=False)
+                    # self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
+                    # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
-            # if self.captioner is not None:
-            #     bboxes_2d = []
-            #     obj_ids_global = []
-            #     centroids_3d = []
-            #     class_names = []
-            #     for i, obj_id in enumerate(detections_tracked['ids']):
-            #         if obj_id is None or obj_id < 0:
-            #             continue
-            #         else:
-            #             obj_ids_global.append(obj_id)
-            #             bboxes_2d.append(detections_tracked['bboxes'][i])
-            #             centroids_3d.append(detections_tracked['centroids_3d'][i])
-            #             class_names.append(detections_tracked['class_names'][i])
+            if self.captioner is not None:
+                bboxes_2d = []
+                obj_ids_global = []
+                centroids_3d = []
+                class_names = []
+                for i, obj_id in enumerate(detections_tracked['ids']):
+                    if obj_id is None or obj_id < 0:
+                        continue
+                    else:
+                        obj_ids_global.append(obj_id)
+                        bboxes_2d.append(detections_tracked['bboxes'][i])
+                        centroids_3d.append(detections_tracked['centroids_3d'][i])
+                        class_names.append(detections_tracked['class_names'][i])
                 
-            #     self.captioner.update_object_crops(
-            #         torch.from_numpy(image).cuda().flip((-1)),
-            #         bboxes_2d,
-            #         obj_ids_global,
-            #         centroids_3d,
-            #         class_names,
-            #     )
+                self.captioner.update_object_crops(
+                    torch.from_numpy(image).cuda().flip((-1)),
+                    bboxes_2d,
+                    obj_ids_global,
+                    centroids_3d,
+                    class_names,
+                )
 
-            # print(f"Time taken for mapping cbk: {time.time() - time_start:.4f} seconds, inference: {inference_time:.4f} seconds, mask: {mask_time:.4f} seconds, mapping: {mapping_time:.4f} seconds")
-            print(f"Time taken for mapping cbk: {time.time() - time_start:.4f} seconds, inference: {inference_time:.4f} seconds, mask: {mask_time:.4f} seconds")
+            print(f"Time taken for mapping cbk: {time.time() - time_start:.4f} seconds, inference: {inference_time:.4f} seconds, mask: {mask_time:.4f} seconds, mapping: {mapping_time:.4f} seconds")
+            # print(f"Time taken for mapping cbk: {time.time() - time_start:.4f} seconds, inference: {inference_time:.4f} seconds, mask: {mask_time:.4f} seconds")
 
 
     def publish_map(self, stamp, odom=None, global_cloud=None):
