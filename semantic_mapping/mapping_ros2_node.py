@@ -318,9 +318,6 @@ class MappingNode(Node):
             # else:
             #     return
             
-            # print(f"Image processing time: {time.time() - start_time}")
-
-            # print('processed image: ', det_stamp)
 
     def cloud_callback(self, msg):
         with self.cloud_cbk_lock:
