@@ -234,7 +234,7 @@ class MappingNode:
         self.bbox3d_pub = rospy.Publisher('/bbox3d', MarkerArray, queue_size=1)
         self.tf_pub = rospy.Publisher('/tf', TFMessage, queue_size=1)
 
-        self.mapping_timer = rospy.Timer(rospy.Duration(2.0), self.mapping_callback)
+        self.mapping_timer = rospy.Timer(rospy.Duration(1.5), self.mapping_callback)
         self.caption_pub_timer = rospy.Timer(rospy.Duration(0.1), self.publish_queried_captions)
 
         rospy.loginfo('Semantic mapping node has been started')
@@ -540,7 +540,7 @@ class MappingNode:
                 if detection_stamp - self.last_vis_stamp > self.vis_interval:
                     self.last_vis_stamp = detection_stamp
                     self.obj_mapper.rerun_vis(camera_odom, regularized=True, show_bbox=True, debug=False)
-                    # self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
+                    self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
                     # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
             if self.captioner is not None:
