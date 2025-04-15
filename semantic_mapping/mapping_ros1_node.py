@@ -301,15 +301,13 @@ class MappingNode:
         #     self.get_logger().error(f'Error processing image: {str(e)}')
 
     def cloud_callback(self, msg):
-        pcd = pc2.read_points_list(msg, field_names=("x", "y", "z"), skip_nans=True)
-        points_numpy = np.array(pcd)
+        points_numpy = pc2.read_points_numpy(msg, field_names=("x", "y", "z"), skip_nans=True)
         self.cloud_stack.append(points_numpy)
         stamp_seconds = msg.header.stamp.secs + msg.header.stamp.nsecs / 1e9
         self.cloud_stamps.append(stamp_seconds)
 
     def overall_map_callback(self, msg):
-        pcd = pc2.read_points_list(msg, field_names=("x", "y", "z"), skip_nans=True)
-        self.global_cloud = np.array(pcd)
+        self.global_cloud = pc2.read_points_numpy(msg, field_names=("x", "y", "z"), skip_nans=True)
 
     def lidar_odom_callback(self, msg):
         odom = {}
