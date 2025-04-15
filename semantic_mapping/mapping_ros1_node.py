@@ -52,7 +52,6 @@ from geometry_msgs.msg import TransformStamped
 
 from scipy.spatial.transform import Slerp
 from scipy.spatial.transform import Rotation
-import open3d as o3d
 
 import yaml
 import sys
@@ -75,7 +74,7 @@ except ModuleNotFoundError:
 
 
 class MappingNode:
-    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker):
+    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker, device='cuda'):
         rospy.init_node('semantic_mapping')
 
         # stacks for time synchronization
@@ -107,6 +106,8 @@ class MappingNode:
         # visualization settings
         self.vis_interval = config.get('vis_interval', 1.0) # seconds
         self.ANNOTATE = config['annotate_image']
+
+        self.device = device
 
         print(
         f'Platform: {self.platform}\n,\
@@ -214,7 +215,7 @@ class MappingNode:
         )
 
         self.overall_map_sub = rospy.Subscriber(
-            '/overall_map',
+            '/explored_areas',
             PointCloud2,
             self.overall_map_callback,
             queue_size=20,
@@ -252,7 +253,7 @@ class MappingNode:
             images=image,
             text=self.text_prompt,
             return_tensors="pt",
-        ).to(device)
+        ).to(self.device)
 
         with torch.no_grad():
             outputs = self.grounding_model(**inputs)
@@ -441,10 +442,10 @@ class MappingNode:
             # sam2
             mask_start = time.time()
             with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-                mask_predictor.set_image(image)
+                self.mask_predictor.set_image(image)
 
                 if len(detections_tracked['bboxes']) > 0:
-                    masks, _, _ = mask_predictor.predict(
+                    masks, _, _ = self.mask_predictor.predict(
                         point_coords=None,
                         point_labels=None,
                         box=np.array(detections_tracked['bboxes']),
@@ -534,7 +535,7 @@ class MappingNode:
             mapping_time = time.time() - mapping_start
 
             # ================== Publish the map to ros ==============
-            self.publish_map(detection_stamp, global_cloud=self.global_cloud)
+            # self.publish_map(detection_stamp, global_cloud=self.global_cloud)
 
             if self.do_visualize:
                 if detection_stamp - self.last_vis_stamp > self.vis_interval:
@@ -658,7 +659,7 @@ if __name__ == "__main__":
     )
     tracker = BYTETracker(args)
     
-    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker)
+    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker, device=device)
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
