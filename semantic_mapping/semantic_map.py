@@ -436,10 +436,7 @@ class ObjMapper():
                                 # merge directly if the distance is small
                                 if minimum_dist < dist_thresh or minimum_dist < 0.5:
                                     self.log_info(f"Merge {single_obj.class_id}:{single_obj.obj_id} to {target_obj.class_id}:{target_obj.obj_id} with dist thresh {dist_thresh}")
-                                    if self.captioner is not None:
-                                        centroid_target = target_obj.infer_centroid(diversity_percentile=self.percentile_thresh, regularized=True)
-                                        bbox_3d_target = target_obj.infer_bbox(diversity_percentile=self.percentile_thresh, regularized=True)
-                                        self.captioner.merge_objects(single_obj.obj_id[0], target_obj.obj_id[0], centroid_target, bbox_3d_target)
+                                    
                                     merged_obj = True
                                 
                                 # # if not merged, check the IOU of the nearest bounding box
@@ -541,6 +538,12 @@ class ObjMapper():
                                     single_obj.merge_object(target_obj)
                                     single_obj.inactive_frame = -1
                                     self.single_obj_list.remove(target_obj)
+
+                                    if self.captioner is not None:
+                                        centroid_target = target_obj.infer_centroid(diversity_percentile=self.percentile_thresh, regularized=True)
+                                        bbox_3d_target = target_obj.infer_bbox(diversity_percentile=self.percentile_thresh, regularized=True)
+                                        self.captioner.merge_objects(single_obj.obj_id[0], target_obj.obj_id[0], centroid_target, bbox_3d_target)
+
                                     del target_obj
 
                 if not merged_obj:

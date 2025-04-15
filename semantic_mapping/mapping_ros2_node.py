@@ -75,7 +75,7 @@ except ModuleNotFoundError:
     print(f"Captioner not found. Fall back to no captioning version.")
 
 class MappingNode(Node):
-    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker, device='cuda'):
+    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker, device='cuda', captioner_batch_size=16):
         super().__init__('semantic_mapping_node')
 
         # class global containers
@@ -89,6 +89,8 @@ class MappingNode(Node):
         self.lidar_odom_stack = []
         self.lidar_odom_stamps = []
         self.global_cloud = np.empty([0, 3])
+        self.cur_pos = np.array([0., 0., 0.])
+        self.cur_orient = np.array([1., 0., 0., 0.])
 
         # class global last states
         self.new_detection = False
@@ -150,7 +152,8 @@ class MappingNode(Node):
                 semantic_dict={},
                 log_info=self.log_info,
                 load_captioner=True,
-                crop_update_source="semantic_mapping"
+                crop_update_source="semantic_mapping",
+                batch_size=captioner_batch_size
             )
         
         self.cloud_img_fusion = CloudImageFusion(platform=self.platform)
@@ -226,12 +229,13 @@ class MappingNode(Node):
             callback_group=MutuallyExclusiveCallbackGroup()
         )
 
-        # self.freespace_sub = self.create_subscription(
-        #     PointCloud2,
-        #     '/terrain_map_ext',
-        #     self.generate_freespace,
-        #     10
-        # )
+        self.freespace_sub = self.create_subscription(
+            PointCloud2,
+            '/terrain_map_ext',
+            self.generate_freespace,
+            10,
+            callback_group=MutuallyExclusiveCallbackGroup()
+        )
 
         self.query_sub = self.create_subscription(
             String, 
@@ -337,6 +341,15 @@ class MappingNode(Node):
             odom['orientation'] = [msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w]
             odom['linear_velocity'] = [msg.twist.twist.linear.x, msg.twist.twist.linear.y, msg.twist.twist.linear.z]
             odom['angular_velocity'] = [msg.twist.twist.angular.x, msg.twist.twist.angular.y, msg.twist.twist.angular.z]
+
+            self.cur_pos[0] = msg.pose.pose.position.x
+            self.cur_pos[1] = msg.pose.pose.position.y
+            self.cur_pos[2] = msg.pose.pose.position.z
+
+            self.cur_orient[0] = msg.pose.pose.orientation.w
+            self.cur_orient[1] = msg.pose.pose.orientation.x
+            self.cur_orient[2] = msg.pose.pose.orientation.y
+            self.cur_orient[3] = msg.pose.pose.orientation.z
 
             self.lidar_odom_stack.append(odom)
             self.lidar_odom_stamps.append(msg.header.stamp.sec + msg.header.stamp.nanosec / 1e9)
@@ -480,7 +493,7 @@ class MappingNode(Node):
                     self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
                     # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
-            print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}, map update time: {map_update_time}, sam2 time: {sam2_time}")
+            # print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}, map update time: {map_update_time}, sam2 time: {sam2_time}")
 
     def mapping_callback(self):
         if self.new_detection:
@@ -649,7 +662,7 @@ class MappingNode(Node):
 
             self.cur_pos_for_freespace = self.cur_pos.copy()
 
-            self.publish_freespace(self.freespace_pcl)
+        self.publish_freespace(self.freespace_pcl)
     
     def publish_freespace(self, freespace: np.ndarray):
         seconds, nanoseconds = self.get_clock().now().seconds_nanoseconds()
@@ -660,6 +673,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.yaml")
+    parser.add_argument("--captioner_batch_size", type=int, default=16)
     args = parser.parse_args()
     
     try:
@@ -706,7 +720,7 @@ if __name__ == "__main__":
     tracker = BYTETracker(byte_tracker_args)
     
     rclpy.init(args=None)
-    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker, device=device)
+    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker, device=device, captioner_batch_size=args.captioner_batch_size)
     
     # executor = MultiThreadedExecutor(num_threads=6)
     # executor.add_node(node)

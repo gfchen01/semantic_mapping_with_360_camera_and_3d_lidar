@@ -5,7 +5,7 @@ detection_angular_state_time_bias: 0.0
 image_processing_interval: 0.1
 visualize: true
 vis_interval: 0.5
-annotate_image: true
+annotate_image: false
 
 cloud_stack_left: 0.5
 cloud_stack_right: 0.1
@@ -14,11 +14,12 @@ prompts:
   chair:
     prompts:
       - chair
-    is_instance: true
-  sofa:
-    prompts:
       - sofa
     is_instance: true
+  # sofa:
+  #   prompts:
+  #     - sofa
+  #   is_instance: true
   table:
     prompts:
       - table
