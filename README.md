@@ -161,7 +161,7 @@ You can either run in simulation or real-world system (rosbag).
  
  Then start the semantic mapping module:
  ```bash
- python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_sim.yaml
+ python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_sim.yaml --mm_config_dir mmconfig/base
  ```
  When the ros node runs stably, you can start operating the simulation. You should see a rerun visualization:
  
@@ -172,7 +172,7 @@ You can either run in simulation or real-world system (rosbag).
 An example bag recorded with [mecanum_wheel_platform](https://github.com/jizhang-cmu/autonomy_stack_mecanum_wheel_platform.git) on real-world system [can be downloaded here](https://drive.google.com/file/d/1upuVfn2NmJdryzzpOvqMzZbjqAoekk00/view?usp=sharing). After downloading the bag, start the ros node with:
 
 ```bash
-python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_real.yaml
+python -m semantic_mapping.mapping_ros2_node --config config/mapping_mecanum_real.yaml --mm_config_dir mmconfig/base
 ```
 
 Then play the rosbag with `rosbag play sqh_2.bag`. You should be able to see the visualized map in Rerun window.

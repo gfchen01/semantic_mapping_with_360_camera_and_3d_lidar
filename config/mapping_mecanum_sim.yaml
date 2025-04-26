@@ -6,6 +6,8 @@ image_processing_interval: 0.5
 visualize: true
 vis_interval: 0.5
 annotate_image: true
+grounding_threshold: 0.25
+mm_grounding_config_dir: mmconfig/base
 
 prompts:
 prompts:
