@@ -69,36 +69,29 @@ conda deactivate
 conda activate mapping_ros2
 ```
 
-Install Grounded-SAM-2:
+Install pytorch and cuda, and set the `CUDA_HOME` variable:
 ```bash
 pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu124
 conda install cuda -c nvidia/label/cuda-12.4.0
 export CUDA_HOME=$(dirname $(dirname $(which nvcc)))
-
-cd external/
-git clone https://github.com/IDEA-Research/Grounded-SAM-2.git
-pip install Grounded-SAM-2/grounding_dino/
-pip install Grounded-SAM-2
-pip install transformers
 ```
 
-Install the customized byte_track and cython_bbox in `external` folder:
+Install MMDetection. [Follow the instructions here](https://mmdetection.readthedocs.io/en/latest/get_started.html).
+
+Download mmgroudningdino config and weights:
 ```bash
-# install customized external libraries
-pip install byte_track cython_bbox
+mkdir -p mmconfig/base
+mim download mmdet --config grounding_dino_swin-b_pretrain_mixeddata --dest mmconfig/base
 ```
 
-
-Install other dependencies
+Install packages in requirements:
 ```bash
-pip install supervision open3d spacy rerun-sdk
+pip install -r requirements.txt
+```
+
+Download resources for spacy:
+```bash
 python3 -m spacy download en_core_web_sm
-```
-
-Finally, install the semantic mapping package:
-```bash
-cd ../
-pip install . # Install semantic_mapping package
 ```
 
 ## Run

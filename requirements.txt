@@ -1,0 +1,12 @@
+git+https://github.com/facebookresearch/sam2.git
+transformers 
+huggingface_hub 
+fairscale 
+supervision 
+open3d 
+spacy 
+rerun-sdk
+numpy==1.26.4
+-e ./external/byte_track
+-e ./external/cython_bbox
+-e ./semantic_mapping

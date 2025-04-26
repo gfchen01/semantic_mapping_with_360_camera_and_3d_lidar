@@ -25,16 +25,14 @@ from types import SimpleNamespace
 
 os.environ["TORCH_CUDA_ARCH_LIST"] = "8.9"
 
-def load_models(
-    dino_id="IDEA-Research/grounding-dino-base", sam2_id="facebook/sam2-hiera-large"
-):
+from mmdet.apis import DetInferencer
+from pathlib import Path
+def load_models(mm_config, mm_weight, sam2_id="facebook/sam2-hiera-large", device='cuda'):
     mask_predictor = SAM2ImagePredictor.from_pretrained(sam2_id, device=device)
-    grounding_processor = AutoProcessor.from_pretrained(dino_id)
-    grounding_model = AutoModelForZeroShotObjectDetection.from_pretrained(dino_id).to(
-        device
-    )
 
-    return mask_predictor, grounding_processor, grounding_model
+    mmdet_model = DetInferencer(model=mm_config, weights=mm_weight, device=device, show_progress=False)
+
+    return mask_predictor, mmdet_model
 
 import rclpy
 from rclpy.node import Node
@@ -75,7 +73,7 @@ except ModuleNotFoundError:
     print(f"Captioner not found. Fall back to no captioning version.")
 
 class MappingNode(Node):
-    def __init__(self, config, mask_predictor, grounding_processor, grounding_model, tracker, device='cuda', captioner_batch_size=16):
+    def __init__(self, config, mask_predictor, grounding_model, tracker, device='cuda', captioner_batch_size=16):
         super().__init__('semantic_mapping_node')
 
         # class global containers
@@ -115,6 +113,7 @@ class MappingNode(Node):
         # visualization settings
         self.vis_interval = config.get('vis_interval', 1.0) # seconds
         self.ANNOTATE = config['annotate_image']
+        self.grounding_score_thresh = config.get('grounding_score_thresh', 0.3)
 
         print(
             f'Platform: {self.platform}\n,\
@@ -127,14 +126,14 @@ class MappingNode(Node):
         )
 
         self.mask_predictor = mask_predictor
-        self.grounding_processor = grounding_processor
         self.grounding_model = grounding_model
 
         self.label_template = config['prompts']
-        self.text_prompt = []
+        self.text_prompt_list = []
         for value in self.label_template.values():
-            self.text_prompt += value['prompts']
-        self.text_prompt = " . ".join(self.text_prompt) + " ."
+            self.text_prompt_list += value['prompts']
+        self.text_prompt = " . ".join(self.text_prompt_list) + " ."
+        self.text_prompt_list = np.array(self.text_prompt_list)
         print(f"Text prompt: {self.text_prompt}")
 
         self.queried_captions = None
@@ -270,26 +269,20 @@ class MappingNode(Node):
         image = cv_image[:, :, ::-1]  # BGR to RGB
         image = image.copy()
 
-        inputs = self.grounding_processor(
-            images=image,
-            text=self.text_prompt,
-            return_tensors="pt",
-        ).to(self.device)
+        results = self.grounding_model(inputs=image, 
+                                       texts=self.text_prompt, 
+                                       pred_score_thr=self.grounding_score_thresh, 
+                                       custom_entities=True, 
+                                       draw_pred=False)['predictions']
 
-        with torch.no_grad():
-            outputs = self.grounding_model(**inputs)
+        class_names = np.array(self.text_prompt_list[results[0]["labels"]])
+        bboxes = np.array(results[0]["bboxes"])  # (n_boxes, 4)
+        confidences = np.array(results[0]["scores"])  # (n_boxes,)
 
-        results = self.grounding_processor.post_process_grounded_object_detection(
-            outputs,
-            inputs.input_ids,
-            box_threshold=0.35,
-            text_threshold=0.35,
-            target_sizes=[image.shape[:2]],
-        )
-
-        class_names = np.array(results[0]["labels"])
-        bboxes = results[0]["boxes"].cpu().numpy()  # (n_boxes, 4)
-        confidences = results[0]["scores"].cpu().numpy()  # (n_boxes,)
+        valid_detections_mask = confidences > self.grounding_score_thresh
+        bboxes = bboxes[valid_detections_mask]
+        confidences = confidences[valid_detections_mask]
+        class_names = class_names[valid_detections_mask]
                 
         det_result = {
             "bboxes": bboxes,
@@ -493,7 +486,7 @@ class MappingNode(Node):
                     self.obj_mapper.rerun_visualizer.visualize_global_pcd(self.global_cloud) 
                     # self.obj_mapper.rerun_visualizer.visualize_local_pcd_with_mesh(np.concatenate(self.cloud_stack, axis=0))
             
-            # print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}, map update time: {map_update_time}, sam2 time: {sam2_time}")
+            print(f"Mapping processing time: {time.time() - start_time}, inference time: {inference_time}, map update time: {map_update_time}, sam2 time: {sam2_time}")
 
     def mapping_callback(self):
         if self.new_detection:
@@ -597,7 +590,7 @@ class MappingNode(Node):
             if not self.mapping_processing_lock.locked():
                 threading.Thread(target=self.mapping_processing, args=(image, camera_odom, detections, detection_stamp, neighboring_cloud)).start()
 
-            # print(f"Mapping processing callback ended. Time: {time.time() - start}")
+            print(f"Mapping processing callback ended. Time: {time.time() - start}")
 
             # self.mapping_processing(image, camera_odom, detections, detection_stamp, neighboring_cloud)
 
@@ -674,6 +667,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.yaml")
     parser.add_argument("--captioner_batch_size", type=int, default=16)
+    parser.add_argument("--mm_config_dir", type=str)
     args = parser.parse_args()
     
     try:
@@ -706,7 +700,13 @@ if __name__ == "__main__":
             "See e.g. https://github.com/pytorch/pytorch/issues/84936 for a discussion."
         )
     
-    mask_predictor, grounding_processor, grounding_model = load_models()
+    mm_dir = Path(args.mm_config_dir)
+    for f in mm_dir.glob("*.*"):
+        if f.suffix == ".py":
+            mm_config = str(f)
+        elif f.suffix == ".pth":
+            mm_weight = str(f)
+    mask_predictor, grounding_model = load_models(mm_config=mm_config, mm_weight=mm_weight, device=device)
 
     byte_tracker_args = SimpleNamespace(
         **{
@@ -720,14 +720,14 @@ if __name__ == "__main__":
     tracker = BYTETracker(byte_tracker_args)
     
     rclpy.init(args=None)
-    node = MappingNode(config, mask_predictor, grounding_processor, grounding_model, tracker, device=device, captioner_batch_size=args.captioner_batch_size)
+    node = MappingNode(config, mask_predictor, grounding_model, tracker, device=device, captioner_batch_size=args.captioner_batch_size)
     
-    # executor = MultiThreadedExecutor(num_threads=6)
-    # executor.add_node(node)
+    executor = MultiThreadedExecutor(num_threads=6)
+    executor.add_node(node)
 
     try:
-        rclpy.spin(node)
-        # executor.spin()
+        # rclpy.spin(node)
+        executor.spin()
     except KeyboardInterrupt:
         pass
     finally:

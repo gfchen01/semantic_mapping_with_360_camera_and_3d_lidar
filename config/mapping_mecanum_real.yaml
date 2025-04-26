@@ -5,7 +5,9 @@ detection_angular_state_time_bias: 0.0
 image_processing_interval: 0.1
 visualize: true
 vis_interval: 0.5
-annotate_image: false
+annotate_image: true
+grounding_threshold: 0.25
+mm_grounding_config_dir: mmconfig/base
 
 cloud_stack_left: 0.5
 cloud_stack_right: 0.1
@@ -14,12 +16,31 @@ prompts:
   chair:
     prompts:
       - chair
+    is_instance: true
+  sofa:
+    prompts:
       - sofa
     is_instance: true
-  # sofa:
-  #   prompts:
-  #     - sofa
-  #   is_instance: true
+  refrigerator:
+    prompts:
+      - refrigerator
+      - fridge
+      - freezer
+    is_instance: true
+  door:
+    prompts:
+      - door
+      - doorway
+      - entrance
+      - wooden door
+    is_instance: true
+  garbage_can:
+    prompts:
+      - garbage can
+      - trash can
+      - trash bin
+      - recycling bin
+    is_instance: true
   table:
     prompts:
       - table
@@ -42,10 +63,23 @@ prompts:
     prompts:
       - painting on the wall
     is_instance: true
-  whiteboard:
+  # whiteboard:
+  #   prompts:
+  #     - whiteboard on the wall
+  #     - standing whiteboard
+  #   is_instance: true
+  bulletin_board:
     prompts:
-      - whiteboard on the wall
-      - standing whiteboard
+      - bulletin board
+    is_instance: true
+  potted_plant:
+    prompts:
+      - potted plant
+      - potted plant on the table
+      - potted plant on the shelf
+      - plant
+      - leaves
+      - tree
     is_instance: true
   cabinet:
     prompts:
@@ -54,6 +88,19 @@ prompts:
       - wood cabinet
       - white cabinet
       - black cabinet under the table
+    is_instance: true
+  # shelf:
+  #   prompts:
+  #     - shelf
+  #     - bookshelf
+  #     - bookcase
+  #     - shelves
+  #   is_instance: true
+  bookshelf:
+    prompts:
+      - bookshelf
+      - bookcase
+      - shelves
     is_instance: true
   # floor:
   #   prompts:

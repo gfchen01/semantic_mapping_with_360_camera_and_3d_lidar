@@ -15,3 +15,5 @@ external/cython_bbox/src/cython_bbox.c
 *.db3
 build
 output
+
+mmconfig
